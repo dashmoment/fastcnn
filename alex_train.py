@@ -2,9 +2,11 @@ import tensorflow as tf
 import numpy as np
 from scipy.misc import imread
 from scipy.misc import imresize
+from scipy import misc
 from numpy import *
 import purgeinvalid_img as pi
 import datetime
+import net_factory
 
 
 def createmodelname():
@@ -12,14 +14,10 @@ def createmodelname():
     filename = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     return filename
 
-path  = "./model/fcann_"
-ftype = ".ckpt" 
-filename = "./model/fcann_v1.ckpt"
 
-pi.purgeinvalidandRGB_img("../ilsvrc11") #Cleanup Invalid file in directory
 
 def randombatch():
-    filenames = tf.train.match_filenames_once("../ilsvrc11/*.jpg")
+    filenames = tf.train.match_filenames_once("../../dataset/ilsvrc_train/*.jpg")
     file_queue =  tf.train.string_input_producer( filenames,  shuffle=True)
     image_reader = tf.WholeFileReader()
     _, image_file = image_reader.read(file_queue)
@@ -40,7 +38,11 @@ def randombatch():
     return images
 
 
-train_x = np.zeros((1,227,227,3)).astype(float32)
+filename = "../model/half_1/fcann_v1.ckpt"
+
+pi.purgeinvalidandRGB_img("../../dataset/ilsvrc_train") #Cleanup Invalid file in directory
+
+train_x = np.zeros((1,227,227,3)).astype(np.float32)
 train_y = np.zeros((1,1000))
 x_dim = train_x.shape[1:]
 y_dim = train_y.shape[1:]
@@ -49,7 +51,7 @@ x = tf.placeholder(tf.float32,(None,) + x_dim)
 
 
 #Load trained model
-net_data = np.load("bvlc_alexnet.npy", encoding='latin1').item()
+net_data = np.load("../model/bvlc_alexnet.npy", encoding='latin1').item()
 
 #conv1
 
@@ -57,81 +59,143 @@ k_size = 11
 stride = 4
 out_size = 96
 
-conv1_w = tf.Variable(net_data["conv1"][0])
-conv1_b = tf.Variable(net_data["conv1"][1])
-conv1_in = tf.nn.conv2d(x,conv1_w, strides=[1,stride,stride,1], padding='SAME')
-conv_in = tf.nn.bias_add(conv1_in, conv1_b)
-conv1 = tf.nn.relu(conv_in)
+train_sum = []
 
-radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
-lrn1 = tf.nn.local_response_normalization(conv1,
-                                                  depth_radius=radius,
-                                                  alpha=alpha,
-                                                  beta=beta,
-                                                  bias=bias)
+continue_training = 1
+loop_num = 10000
 
-k_h = 3; k_w = 3; s_h = 2; s_w = 2; padding = 'VALID'
-maxpool1 = tf.nn.max_pool(lrn1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
-#maxpool1 = tf.nn.max_pool(lrn1, ksize = [1,1,1,2],strides=[1,1,1,2], padding='VALID')
+with tf.name_scope("conv1"):
 
-rconv1_w = tf.Variable(tf.random_normal([11,11,3,96]))
-rconv1_b = tf.Variable(tf.random_normal([96]))
+    conv1_w = tf.Variable(net_data["conv1"][0], trainable = False)
+    conv1_b = tf.Variable(net_data["conv1"][1], trainable = False)
+    conv1_in = tf.nn.conv2d(x,conv1_w, strides=[1,stride,stride,1], padding='SAME')
+    conv_in = tf.nn.bias_add(conv1_in, conv1_b)
+    conv1 = tf.nn.relu(conv_in)
+    
+    radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
+    lrn1 = tf.nn.local_response_normalization(conv1,
+                                                      depth_radius=radius,
+                                                      alpha=alpha,
+                                                      beta=beta,
+                                                      bias=bias)
+    
+    k_h = 3; k_w = 3; s_h = 2; s_w = 2; padding = 'VALID'
+    maxpool1 = tf.nn.max_pool(lrn1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
+    tf.summary.histogram('conv', conv1_w)
+    tf.summary.histogram('bias', conv1_b)
+    
 
-stride = stride
-rconv1_in = tf.nn.conv2d(x, rconv1_w, strides=[1,stride,stride,1], padding='SAME')
-rconv_in = tf.nn.bias_add(rconv1_in, rconv1_b)
-rconv1_in = tf.nn.relu(rconv_in)
-rlrn1 = tf.nn.local_response_normalization(rconv1_in,
-                                                  depth_radius=radius,
-                                                  alpha=alpha,
-                                                  beta=beta,
-                                                  bias=bias)
-rmaxpool1 = tf.nn.max_pool(rlrn1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
-saver = tf.train.Saver({"w1":rconv1_w, "w2":rconv1_b})
+
+with tf.name_scope("New_conv1"):
+
+    
+    rconv1_w = tf.Variable(tf.random_normal([11,11,3,48]))
+    rconv1_b = tf.Variable(tf.random_normal([48]))
+
+    rconv1_in = tf.nn.conv2d(x, rconv1_w, strides=[1,stride,stride,1], padding='SAME')
+    rconv_in = tf.nn.bias_add(rconv1_in, rconv1_b)
+    rconv1_in = tf.nn.relu(rconv_in)
+    rlrn1 = tf.nn.local_response_normalization(rconv1_in,
+                                                      depth_radius=radius,
+                                                      alpha=alpha,
+                                                      beta=beta,
+                                                      bias=bias)
+    rmaxpool1_s = tf.nn.max_pool(rlrn1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
+    
+    
+    rconv_in_expand = tf.concat([rconv1_in,rconv1_in],3)
+    rconv1_w_expand = tf.concat([rconv1_w,rconv1_w],3)
+    rconv1_b_expand = tf.concat([rconv1_b,rconv1_b],0)
+    
+    rmaxpool1 = tf.concat([rmaxpool1_s, rmaxpool1_s],3)
+
+    tf.summary.histogram('r_conv', rconv1_w)
+    tf.summary.histogram('r_bias', rconv1_b)
+    
 
 
 raw = tf.placeholder(tf.float32,(None,) + x_dim)
 image_submean = tf.subtract(raw, tf.reduce_mean(raw))
+       
+pool_loss = tf.subtract(maxpool1, rmaxpool1)
+pool_res = tf.reduce_mean(tf.multiply(pool_loss,pool_loss))
 
-        
-y = tf.subtract(maxpool1, rmaxpool1)
-res = tf.reduce_mean(tf.multiply(y,y))
-train_step = tf.train.AdamOptimizer(1e-4).minimize(res)
+conv_loss = tf.subtract(conv_in,rconv_in_expand)
+conv_res =  tf.reduce_mean(tf.multiply(conv_loss,conv_loss))
+
+total_res = conv_res + pool_res
+tf.summary.scalar("pool_loss",pool_res)
+tf.summary.scalar("conv_loss",conv_res)
+tf.summary.scalar("total_res",total_res)
+
+
+train_step = tf.train.AdamOptimizer(0.01).minimize(pool_res)
 
 sample_batch = randombatch()
 
 
-with tf.Session() as sess:
+maxpool2 = net_factory.vanilla_alex(x)
+rmaxpool2 = net_factory.mini_alex(x, rconv1_w_expand, rconv1_b_expand)  
+pool2_loss = tf.subtract(maxpool2, rmaxpool2)
+pool2_res = tf.reduce_mean(tf.multiply(pool2_loss,pool2_loss))
+tf.summary.scalar("pool2_loss",pool2_res)
 
+with tf.Session() as sess:
+    
+    merged_summary_op = tf.summary.merge_all()
+    summary_writer = tf.summary.FileWriter('../log/half_1', sess.graph)  
+    
     init = tf.global_variables_initializer()
-    sess.run(init)
-      
+    sess.run(init)  
+    
+    
+    saver = tf.train.Saver()  
+    if continue_training !=0:
+        resaver = tf.train.import_meta_graph('../model/half_1/fcann_v1.ckpt-2000.meta')
+        #resaver.restore(sess, '../model/fcann_v1.ckpt-30')   
+        resaver.restore(sess, tf.train.latest_checkpoint('../model/half_1'))
+        sess.run(rconv1_w.assign(tf.get_collection('w1')[0]))
+        sess.run(rconv1_b.assign(tf.get_collection('b1')[0]))
+        continue_training = 0
+    
+    
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord=coord) 
     
     try:
         #while not coord.should_stop():
-        for i in range(151):
-            # Run training steps or whatever
+        for i in range(loop_num,20000000):
+            
+            
             image_tensor = sess.run(sample_batch)
+            
+            print("Training Step: {}".format(i))
             print(image_tensor[0][0][0][0])
             
-            resimage = sess.run(image_submean, feed_dict={raw:image_tensor}) 
-            output = sess.run(maxpool1, feed_dict = {x:resimage})
-        
-            sess.run(train_step, feed_dict = {x:resimage})
+            resimage = sess.run(image_submean, feed_dict={raw:image_tensor})   
     
-            print("Training Step: {}".format(i))
-            if i%50 == 0:
-                loss = sess.run(res, feed_dict = {x:resimage}) 
-                print("Res of Step {}:{}".format(i,loss))
+            sess.run(train_step, feed_dict = {x:resimage})
+            
+            if i%500 == 0:
                 
-          
-                saved_model = saver.save(sess, filename, global_step=i)
+                pres,cres, summary = sess.run([pool_res,conv_res, merged_summary_op], feed_dict = {x:resimage}) 
+                isummary = sess.run(tf.summary.image("batch{}".format(i), sample_batch, max_outputs=3))
+                
+                summary_writer.add_summary(summary, i)
+                summary_writer.add_summary(isummary, i)
+                
+                print("Pool loss:{} , Conv loss:{}".format(pres, cres))
+                
+                tf.add_to_collection("w1", rconv1_w)
+                tf.add_to_collection("b1", rconv1_b)
+                tf.add_to_collection("ow1", conv1_w)
+                tf.add_to_collection("ob1", conv1_b)
+                
+                
                 print("Save Model:{}".format(filename))
-                
+                saved_model = saver.save(sess, filename, global_step=i)
            
-          
+           
     except tf.errors.OutOfRangeError:
         print('Done training -- epoch limit reached')
     finally:
@@ -139,8 +203,9 @@ with tf.Session() as sess:
         coord.request_stop()
         coord.join(threads)
         
-        
-
+    summary_writer.close()
+    sess.close()  
+   
 
 
 
