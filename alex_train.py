@@ -62,7 +62,7 @@ out_size = 96
 train_sum = []
 
 continue_training = 1
-loop_num = 215000
+loop_num = 220500
 
 with tf.name_scope("conv1"):
 
