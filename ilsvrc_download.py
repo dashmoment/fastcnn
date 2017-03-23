@@ -3,8 +3,10 @@ import codecs
 import urllib.request as url
 import urllib
 
-skip = 800
-with codecs.open("ilsvrc11/fall11_urls.txt", "r",encoding='utf-8', errors='ignore') as text_file:
+
+skip = 2000
+with codecs.open("../ilsvrc11/fall11_urls.txt", "r",encoding='utf-8', errors='ignore') as text_file:
+
 	#text_file = open("/home/dashmoment/data/fall11_urls.txt", "r")
 	#lines = text_file.readlines()
 
@@ -14,7 +16,8 @@ with codecs.open("ilsvrc11/fall11_urls.txt", "r",encoding='utf-8', errors='ignor
        
             try:
                 if i>skip:
-                    filename = "ilsvrc11/" + lines[i] + ".jpg"
+
+                    filename = "../ilsvrc11/" + lines[i] + ".jpg"
                     url.urlretrieve(lines[i+1], filename)
                     print('{}'.format(lines[i+1]))
             except IOError as e:

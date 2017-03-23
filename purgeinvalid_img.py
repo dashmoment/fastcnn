@@ -41,21 +41,23 @@ def purgeinvalidandRGB_img(directory, ftype=".jpg", validtype = "jpeg"):
         #print(file)
         if file.endswith(ftype):
             filename = os.path.join(directory, file)
-            
-            im = Image.open(filename)         
             filetype = imghdr.what(filename)  
-            
-            if im.mode != 'RGB':
-                im = im.convert('RGB')
-                im.show()
-                im.save(filename)
-                print(im.mode)
-                continue
-            
             if filetype != validtype:
                 os.remove(filename)
                 print("Remove{}".format(filename))
                 continue
+            
+            im = Image.open(filename)         
+            
+            
+            if im.mode != 'RGB':
+                im = im.convert('RGB')
+                #im.show()
+                im.save(filename)
+                print(im.mode)
+                continue
+            
+           
            
 
                 

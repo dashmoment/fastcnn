@@ -30,8 +30,8 @@ import tensorflow as tf
 
 from caffe_classes import class_names
 
-train_x = zeros((1, 227,227,3)).astype(float32)
-train_y = zeros((1, 1000))
+train_x = np.zeros((1, 227,227,3)).astype(np.float32)
+train_y = np.zeros((1, 1000))
 xdim = train_x.shape[1:]
 ydim = train_y.shape[1]
 
@@ -41,11 +41,11 @@ ydim = train_y.shape[1]
 #Read Image, and change to BGR
 
 
-im1 = (imread("laska.png")[:,:,:3]).astype(float32)
-im1 = im1 - mean(im1)
+im1 = (imread("laska.png")[:,:,:3]).astype(np.float32)
+im1 = im1 - np.mean(im1)
 im1[:, :, 0], im1[:, :, 2] = im1[:, :, 2], im1[:, :, 0]
 
-im2 = (imread("dog2.png")[:,:,:3]).astype(float32)
+im2 = (imread("dog2.png")[:,:,:3]).astype(np.float32)
 im2[:, :, 0], im2[:, :, 2] = im2[:, :, 2], im2[:, :, 0]
 
 
@@ -96,8 +96,12 @@ x = tf.placeholder(tf.float32, (None,) + xdim)
 #conv1
 #conv(11, 11, 96, 4, 4, padding='VALID', name='conv1')
 k_h = 11; k_w = 11; c_o = 96; s_h = 4; s_w = 4
-conv1W = tf.Variable(net_data["conv1"][0])
-conv1b = tf.Variable(net_data["conv1"][1])
+
+
+#conv1W = tf.Variable(net_data["conv1"][0])
+#conv1b = tf.Variable(net_data["conv1"][1])
+conv1W = tf.get_collection("w1")[0]
+conv1b = tf.get_collection("b1")[0]
 conv1_in = conv(x, conv1W, conv1b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=1)
 conv1 = tf.nn.relu(conv1_in)
 
@@ -192,9 +196,14 @@ fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b)
 #softmax(name='prob'))
 prob = tf.nn.softmax(fc8)
 
+ 
 init = tf.initialize_all_variables()
 sess = tf.Session()
+new_saver = tf.train.import_meta_graph('./model/fcann_v1.ckpt-0.meta')
+new_saver.restore(sess, tf.train.latest_checkpoint('./model'))
 sess.run(init)
+
+
 
 t = time.time()
 output = sess.run(prob, feed_dict = {x:[im1,im2]})
