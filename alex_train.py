@@ -38,7 +38,6 @@ def randombatch():
     return images
 
 
-filename = "../model/half_1/fcann_v1.ckpt"
 
 pi.purgeinvalidandRGB_img("../../dataset/ilsvrc_train") #Cleanup Invalid file in directory
 
@@ -61,8 +60,8 @@ out_size = 96
 
 train_sum = []
 
-continue_training = 1
-loop_num = 220500
+continue_training = 0
+loop_num = 0
 
 with tf.name_scope("conv1"):
 
@@ -129,7 +128,7 @@ tf.summary.scalar("conv_loss",conv_res)
 tf.summary.scalar("total_res",total_res)
 
 
-train_step = tf.train.AdamOptimizer(0.01).minimize(pool_res)
+train_step = tf.train.AdamOptimizer(1e-4).minimize(pool_res)
 
 sample_batch = randombatch()
 
@@ -141,9 +140,14 @@ pool2_res = tf.reduce_mean(tf.multiply(pool2_loss,pool2_loss))
 tf.summary.scalar("pool2_loss",pool2_res)
 
 with tf.Session() as sess:
+
+    filename = "../model/half_2_step1e-4/fcann_v1.ckpt"
+    logfile = '../log/half_2_step1e-4'
+    graph_model = '../model/half_2_step1e-4/fcann_v1.ckpt-2000.meta'
+    checkpoint_dir = '../model/half_2_step1e-4'
     
     merged_summary_op = tf.summary.merge_all()
-    summary_writer = tf.summary.FileWriter('../log/half_1', sess.graph)  
+    summary_writer = tf.summary.FileWriter(logfile, sess.graph)  
     
     init = tf.global_variables_initializer()
     sess.run(init)  
@@ -151,9 +155,9 @@ with tf.Session() as sess:
     
     saver = tf.train.Saver()  
     if continue_training !=0:
-        resaver = tf.train.import_meta_graph('../model/half_1/fcann_v1.ckpt-2000.meta')
+        resaver = tf.train.import_meta_graph(graph_model)
         #resaver.restore(sess, '../model/fcann_v1.ckpt-30')   
-        resaver.restore(sess, tf.train.latest_checkpoint('../model/half_1'))
+        resaver.restore(sess, tf.train.latest_checkpoint(checkpoint_dir))
         sess.run(rconv1_w.assign(tf.get_collection('w1')[0]))
         sess.run(rconv1_b.assign(tf.get_collection('b1')[0]))
         continue_training = 0
