@@ -299,6 +299,44 @@ def mini_alex(data,conv1W,conv1b):
     
     return maxpool2
 
+def mini_alex_ds(data,conv1W,conv1b):
+    net_data = np.load("../model/bvlc_alexnet.npy", encoding='latin1').item()
+    s_h = 8; s_w = 8
+
+    conv1_in = tf.nn.conv2d(data, conv1W, strides=[1,s_h,s_w,1], padding='VALID')
+    conv1_add = tf.nn.bias_add(conv1_in, conv1b)
+    conv1 = tf.nn.relu(conv1_add)
+    radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
+    lrn1 = tf.nn.local_response_normalization(conv1,
+                                                  depth_radius=radius,
+                                                  alpha=alpha,
+                                                  beta=beta,
+                                                  bias=bias)
+#    k_h = 3; k_w = 3; s_h = 2; s_w = 2
+#    maxpool1 = tf.nn.max_pool(lrn1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding='VALID')
+        
+    #conv2
+    #conv(5, 5, 256, 1, 1, group=2, name='conv2')
+    k_h = 5; k_w = 5; c_o = 256; s_h = 1; s_w = 1; group = 2
+    conv2W = tf.Variable(net_data["conv2"][0])
+    conv2b = tf.Variable(net_data["conv2"][1])
+    
+    conv2_in = conv(lrn1, conv2W, conv2b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
+   
+    conv2_add = tf.nn.bias_add(conv2_in, conv2b)
+    conv2 = tf.nn.relu(conv2_add)
+    radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
+    lrn2 = tf.nn.local_response_normalization(conv2,
+                                                  depth_radius=radius,
+                                                  alpha=alpha,
+                                                  beta=beta,
+                                                  bias=bias)
+    k_h = 3; k_w = 3; s_h = 2; s_w = 2
+    maxpool2 = tf.nn.max_pool(lrn2, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding='VALID')
+    
+    
+    return maxpool2
+
 
 
 
