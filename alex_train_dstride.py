@@ -60,8 +60,8 @@ out_size = 96
 
 train_sum = []
 
-continue_training = 0
-loop_num = 0
+continue_training = 1
+loop_num = 16000
 
 with tf.name_scope("conv1"):
 
@@ -131,7 +131,7 @@ tf.summary.scalar("conv_loss",conv_res)
 tf.summary.scalar("total_res",total_res)
 
 
-train_step = tf.train.AdamOptimizer(1e-4).minimize(pool_res)
+
 
 sample_batch = randombatch()
 
@@ -142,12 +142,16 @@ pool2_loss = tf.subtract(maxpool2, rmaxpool2)
 pool2_res = tf.reduce_mean(tf.multiply(pool2_loss,pool2_loss))
 tf.summary.scalar("pool2_loss",pool2_res)
 
+train_loss = pool_res + pool2_res
+
+train_step = tf.train.AdamOptimizer(1e-4).minimize(train_loss)
+
 with tf.Session() as sess:
 
-    filename = "../model/half_2_1e-4_dstride/fcann_v1.ckpt"
-    logfile = '../log/half_2_1e-4_dstride'
-    graph_model = '../model/half_2_1e-4_dstride/fcann_v1.ckpt-2000.meta'
-    checkpoint_dir = '../model/half_2_1e-4_dstride'
+    filename = "../model/half_2_1e-4_dstride_2loss/fcann_v1.ckpt"
+    logfile = '../log/half_2_1e-4_dstride_2loss'
+    graph_model = '../model/half_2_1e-4_dstride_2loss/fcann_v1.ckpt-16000.meta'
+    checkpoint_dir = '../model/half_2_1e-4_dstride_2loss'
     
     merged_summary_op = tf.summary.merge_all()
     summary_writer = tf.summary.FileWriter(logfile, sess.graph)  
