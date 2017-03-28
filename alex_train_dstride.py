@@ -48,12 +48,8 @@ net_data = np.load("../model/bvlc_alexnet.npy", encoding='latin1').item()
 
 k_size = 11
 stride = 4
-out_size = 96
-
-train_sum = []
-
 continue_training = 1
-loop_num = 94684
+loop_num = 13045
 
 
 with tf.name_scope("conv1"):
@@ -81,8 +77,8 @@ with tf.name_scope("conv1"):
 with tf.name_scope("New_conv1"):
 
      
-    rconv1_w = tf.Variable(tf.random_normal([11,11,3,96]))
-    rconv1_b = tf.Variable(tf.random_normal([96]))
+    rconv1_w = tf.Variable(tf.random_normal([11,11,3,96],stddev=0.1))
+    rconv1_b = tf.Variable(tf.random_normal([96],mean= -0.5,stddev= 0.3))
 
     rconv1_in = tf.nn.conv2d(x, rconv1_w, strides=[1,8,8,1], padding='VALID')
     rconv_in = tf.nn.bias_add(rconv1_in, rconv1_b)
@@ -102,11 +98,12 @@ def commonlayer(input_l):
     
     with tf.name_scope("Common"):
         
-        k_h = 5; k_w = 5; s_h = 1; s_w = 1;
-        conv2W = tf.Variable(net_data["conv2"][0])
-        conv2b = tf.Variable(net_data["conv2"][1])
+        k_h = 5; k_w = 5; s_h = 1; s_w = 1;c_o = 256;group = 2
+        conv2W = tf.Variable(net_data["conv2"][0], trainable = False)
+        conv2b = tf.Variable(net_data["conv2"][1], trainable = False)
         
-        conv2_in = tf.nn.conv2d(input_l,conv2W, strides=[1,stride,stride,1], padding='SAME')
+        conv2_in = net_factory.conv(input_l, conv2W, conv2b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
+        #conv2_in = tf.nn.conv2d(input_l,conv2W, strides=[1,stride,stride,1], padding='SAME')
        
         conv2_add = tf.nn.bias_add(conv2_in, conv2b)
         conv2 = tf.nn.relu(conv2_add)
@@ -129,7 +126,7 @@ raw = tf.placeholder(tf.float32,(None,) + x_dim)
 image_submean = tf.subtract(raw, tf.reduce_mean(raw))
        
 pool_loss = tf.subtract(maxpool1, rlrn1)
-pool_res = tf.reduce_mean(tf.multiply(pool_loss,pool_loss))
+pool_res = tf.reduce_sum(tf.multiply(pool_loss,pool_loss))
 
 conv_res = pool_res
 
@@ -145,34 +142,18 @@ tf.summary.scalar("conv_loss",conv_res)
 tf.summary.scalar("total_res",total_res)
 tf.summary.scalar("pool2_loss",pool2_res)
 
-<<<<<<< HEAD
-
-
 sample_batch = randombatch()
-
-
-maxpool2 = net_factory.vanilla_alex(x)
-rmaxpool2 = net_factory.mini_alex_ds(x, rconv1_w, rconv1_b)  
-pool2_loss = tf.subtract(maxpool2, rmaxpool2)
-pool2_res = tf.reduce_mean(tf.multiply(pool2_loss,pool2_loss))
-tf.summary.scalar("pool2_loss",pool2_res)
 
 train_loss = pool_res + pool2_res
-
-train_step = tf.train.AdamOptimizer(1e-4).minimize(train_loss)
-
-=======
-train_step = tf.train.AdamOptimizer(1e-4).minimize(pool_res)
-sample_batch = randombatch()
+train_step = tf.train.AdamOptimizer(1e-4).minimize(pool2_res)
 
 
->>>>>>> 8eeee4381488bfb0e2f3961dcc0698d7ce0fde78
 with tf.Session() as sess:
 
-    filename = "../model/half_2_1e-4_dstride_2loss/fcann_v1.ckpt"
-    logfile = '../log/half_2_1e-4_dstride_2loss'
-    graph_model = '../model/half_2_1e-4_dstride_2loss/fcann_v1.ckpt-16000.meta'
-    checkpoint_dir = '../model/half_2_1e-4_dstride_2loss'
+    filename = "../model/half_2_1e-4_dstride_p2/fcann_v1.ckpt"
+    logfile = '../log/half_2_1e-4_dstride_p2'
+    graph_model = '../model/half_2_1e-4_dstride_p2/fcann_v1.ckpt-16000.meta'
+    checkpoint_dir = '../model/half_2_1e-4_dstride_p2'
     
     merged_summary_op = tf.summary.merge_all()
     summary_writer = tf.summary.FileWriter(logfile, sess.graph)  

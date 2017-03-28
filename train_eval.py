@@ -34,16 +34,7 @@ train_x = np.zeros((1, 227,227,3)).astype(np.float32)
 train_y = np.zeros((1, 1000))
 xdim = train_x.shape[1:]
 ydim = train_y.shape[1]
-#im1 = (imread("laska.png")[:,:,:3]).astype(np.float32)
-#src = Image.open( "../..//ilsvrc11/n00004475_6590.jpg")
-#im = src.resize([227,227])
-#im1 = np.asarray(im).astype(np.float32)
-#
-#im1 = im1 - np.mean(im1)
-#
-#src = Image.open( "../../ilsvrc11/n00004475_42770.jpg")
-#im = src.resize([227,227])
-#im2 = np.asarray(im).astype(np.float32)
+
 
 x = tf.placeholder(tf.float32, (None,) + xdim)
 
@@ -51,20 +42,16 @@ sample_batch = randombatch()
  
 with tf.Session() as sess:
     
-    new_saver = tf.train.import_meta_graph('../model/half_1/fcann_v1.ckpt-215000.meta')
+    new_saver = tf.train.import_meta_graph('../model/half_2_1e-4_dstride_p2/fcann_v1.ckpt-13000.meta')
     #new_saver.restore(sess, tf.train.latest_checkpoint('../model'))
-    new_saver.restore(sess, '../model/half_1/fcann_v1.ckpt-215000')
+    new_saver.restore(sess, '../model/half_2_1e-4_dstride_p2/fcann_v1.ckpt-13000')
     
     tw1 = tf.Variable(sess.run(tf.get_collection("w1")[0]))
     tb1 = tf.Variable(sess.run(tf.get_collection("b1")[0]))
     
-    tw1_d = tf.concat([tw1,tw1],3)
-    tb1_d = tf.concat([tb1,tb1],0)
-    
-    
     
     net = net_factory.vanilla_alex_full(x)
-    mininet = net_factory.mini_alex_full(x,tw1_d,tb1_d)
+    mininet = net_factory.mini_alex_full(x,tw1,tb1)
     
     init = tf.global_variables_initializer()
     sess.run(init)  
@@ -83,6 +70,7 @@ with tf.Session() as sess:
         plt.figure(1)
         plt.subplot(211)
         plt.plot(output[0])
+        plt.figure(2)
         plt.plot(output2[0])
         
         for input_im_ind in range(output.shape[0]):
@@ -91,19 +79,15 @@ with tf.Session() as sess:
             inds2 = np.argsort(output2)[input_im_ind,:]
             
                 
-#            for i in range(5):
-#                print("Image", input_im_ind)
-#                print("Origin:")
-#                print(class_names[inds[-1-i]], output[input_im_ind, inds[-1-i]])
-#                print("Small:")
-#                print(class_names[inds[-1-i]], output2[input_im_ind, inds[-1-i]])
-                
             for j in range(0,len(inds)):
                 if j < len(inds)-5 : 
                     output[input_im_ind, inds[j]] = 0
+                    output2[input_im_ind, inds2[j]] = 0
                 if j >= len(inds)-5:
+                    output2[input_im_ind, inds2[j]] = 1
                     output[input_im_ind, inds[j]] = 1
-
+        print("Origin:{}, Mini:{}".format(class_names[inds[-1]],class_names[inds2[-1]]))
+        plt.figure(3)
         plt.subplot(212)
         plt.plot(output[0])
         plt.plot(output2[0])

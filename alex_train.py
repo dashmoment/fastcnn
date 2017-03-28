@@ -143,7 +143,7 @@ with tf.Session() as sess:
 
     filename = "../model/half_2_step1e-4/fcann_v1.ckpt"
     logfile = '../log/half_2_step1e-4'
-    graph_model = '../model/half_2_step1e-4/fcann_v1.ckpt-2000.meta'
+    graph_model = '../model/half_2_step1e-4/fcann_v1.ckpt-0.meta'
     checkpoint_dir = '../model/half_2_step1e-4'
     
     merged_summary_op = tf.summary.merge_all()
