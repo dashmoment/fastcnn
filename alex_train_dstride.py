@@ -3,16 +3,8 @@ import numpy as np
 from scipy.misc import imread
 from scipy.misc import imresize
 from scipy import misc
-from numpy import *
 import purgeinvalid_img as pi
-import datetime
 import net_factory
-
-
-def createmodelname():
-    
-    filename = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    return filename
 
 
 
@@ -61,7 +53,8 @@ out_size = 96
 train_sum = []
 
 continue_training = 1
-loop_num = 16000
+loop_num = 94684
+
 
 with tf.name_scope("conv1"):
 
@@ -99,17 +92,36 @@ with tf.name_scope("New_conv1"):
                                                       alpha=alpha,
                                                       beta=beta,
                                                       bias=bias)
-#    rmaxpool1_s = tf.nn.max_pool(rlrn1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
-    
-    
-#    rconv_in_expand = tf.concat([rconv1_in,rconv1_in],3)
-#    rconv1_w_expand = tf.concat([rconv1_w,rconv1_w],3)
-#    rconv1_b_expand = tf.concat([rconv1_b,rconv1_b],0)
-#    
-#    rmaxpool1 = tf.concat([rmaxpool1_s, rmaxpool1_s],3)
 
     tf.summary.histogram('r_conv', rconv1_w)
     tf.summary.histogram('r_bias', rconv1_b)
+    
+    
+    
+def commonlayer(input_l):
+    
+    with tf.name_scope("Common"):
+        
+        k_h = 5; k_w = 5; s_h = 1; s_w = 1;
+        conv2W = tf.Variable(net_data["conv2"][0])
+        conv2b = tf.Variable(net_data["conv2"][1])
+        
+        conv2_in = tf.nn.conv2d(input_l,conv2W, strides=[1,stride,stride,1], padding='SAME')
+       
+        conv2_add = tf.nn.bias_add(conv2_in, conv2b)
+        conv2 = tf.nn.relu(conv2_add)
+        radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
+        lrn2 = tf.nn.local_response_normalization(conv2,
+                                                      depth_radius=radius,
+                                                      alpha=alpha,
+                                                      beta=beta,
+                                                      bias=bias)
+        k_h = 3; k_w = 3; s_h = 2; s_w = 2
+        maxpool2 = tf.nn.max_pool(lrn2, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding='VALID')
+        
+        
+    return maxpool2
+
     
 
 
@@ -119,18 +131,21 @@ image_submean = tf.subtract(raw, tf.reduce_mean(raw))
 pool_loss = tf.subtract(maxpool1, rlrn1)
 pool_res = tf.reduce_mean(tf.multiply(pool_loss,pool_loss))
 
-#conv_loss = tf.subtract(maxpool1, rlrn1)
-#conv_res =  tf.reduce_mean(tf.multiply(conv_loss,conv_loss))
-
 conv_res = pool_res
+
+maxpool2 = commonlayer(maxpool1)
+rmaxpool2 = commonlayer(rlrn1)
+pool2_loss = tf.subtract(maxpool2, rmaxpool2)
+pool2_res = tf.reduce_mean(tf.multiply(pool2_loss,pool2_loss))
 
 total_res = conv_res + pool_res
 total_res = pool_res
 tf.summary.scalar("pool_loss",pool_res)
 tf.summary.scalar("conv_loss",conv_res)
 tf.summary.scalar("total_res",total_res)
+tf.summary.scalar("pool2_loss",pool2_res)
 
-
+<<<<<<< HEAD
 
 
 sample_batch = randombatch()
@@ -146,6 +161,12 @@ train_loss = pool_res + pool2_res
 
 train_step = tf.train.AdamOptimizer(1e-4).minimize(train_loss)
 
+=======
+train_step = tf.train.AdamOptimizer(1e-4).minimize(pool_res)
+sample_batch = randombatch()
+
+
+>>>>>>> 8eeee4381488bfb0e2f3961dcc0698d7ce0fde78
 with tf.Session() as sess:
 
     filename = "../model/half_2_1e-4_dstride_2loss/fcann_v1.ckpt"
