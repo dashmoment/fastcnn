@@ -122,6 +122,9 @@ def vanilla_alex_full(data):
         fc8b = tf.Variable(net_data["fc8"][1], trainable = False)
         fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b)     
         prob = tf.nn.softmax(fc8)
+        
+        
+        
     
         return fc8W,fc8b, prob
 
