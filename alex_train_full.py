@@ -31,8 +31,8 @@ def randombatch(batchfile):
     return images
 
 
-continue_training = 0
-loop_num = 0
+continue_training = 1
+loop_num = 490820
 
 pi.purgeinvalidandRGB_img("../../dataset/VOC2012/JPEGImages") #Cleanup Invalid file in directory
 x = tf.placeholder(tf.float32,(None,227,227,3))
@@ -163,8 +163,9 @@ with tf.Session() as sess:
     test_file = "../../dataset/ilsvrc_train/*.jpg"
     filename = "../model/half_2_full_large/fcann_v1.ckpt"
     logfile = '../log/half_2_full_large'
-    graph_model = '../model/half_2_full_large/fcann_v1.ckpt-10.meta'
+    graph_model = '../model/half_2_full_large/fcann_v1.ckpt-489000.meta'
     checkpoint_dir = '../model/half_2_full_large'
+    
     '''
     filename = "../model/test/fcann_v1.ckpt"
     logfile = '../log/test'

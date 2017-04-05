@@ -14,6 +14,7 @@ from scipy.misc import imresize
 from caffe_classes import class_names
 from PIL import Image
 import matplotlib.pyplot as plt
+import time
 
 
 
@@ -37,6 +38,7 @@ def conv(input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group
 
 
 def vanilla_alex_full(data):
+
     
     net_data = np.load("../model/bvlc_alexnet.npy", encoding='latin1').item()
     
@@ -221,6 +223,181 @@ def mini_alex_full(data,conv1W,conv1b):
         prob = tf.nn.softmax(fc8)
         return prob
 
+def full_alex_test(data):
+
+    with tf.name_scope("conv1"):
+        s_h = 8; s_w = 8
+        rconv1W = tf.Variable(tf.random_normal([11,11,3,96],stddev=0.01))
+        rconv1b = tf.Variable(tf.random_normal([96],mean= 0,stddev= 0.01)) 
+        conv1_in = tf.nn.conv2d(data, rconv1W, strides=[1,s_h,s_w,1], padding='VALID')
+        conv1_add = tf.nn.bias_add(conv1_in, rconv1b)
+        conv1 = tf.nn.relu(conv1_add)
+        radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
+        lrn1 = tf.nn.local_response_normalization(conv1,
+                                                      depth_radius=radius,
+                                                      alpha=alpha,
+                                                      beta=beta,
+                                                      bias=bias)
+        
+    #conv2
+    with tf.name_scope("conv2"):
+        k_h = 5; k_w = 5; c_o = 256; s_h = 2; s_w = 2
+        rconv2W = tf.Variable(tf.random_normal([k_h,k_w,96,256],stddev=0.01))
+        rconv2b = tf.Variable(tf.random_normal([256],mean= 0,stddev= 0.01))        
+        conv2_in = tf.nn.conv2d(lrn1, rconv2W, strides=[1,s_h,s_w,1], padding='VALID')
+        conv2_add = tf.nn.bias_add(conv2_in, rconv2b)
+        conv2 = tf.nn.relu(conv2_add)
+        radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
+        lrn2 = tf.nn.local_response_normalization(conv2,
+                                                      depth_radius=radius,
+                                                      alpha=alpha,
+                                                      beta=beta,
+                                                      bias=bias)
+
+    #conv3
+    with tf.name_scope("conv3"):
+    #conv(3, 3, 384, 1, 1, name='conv3')
+        k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1
+        rconv3W = tf.Variable(tf.random_normal([k_h,k_w,256,c_o],stddev=0.01))
+        rconv3b = tf.Variable(tf.random_normal([384],mean= 0,stddev= 0.01))
+        conv3_in = tf.nn.conv2d(lrn2, rconv3W, strides=[1,s_h,s_w,1], padding='SAME')
+        conv3_add = tf.nn.bias_add(conv3_in, rconv3b)
+        conv3 = tf.nn.relu(conv3_add)
+    
+    #conv4
+    with tf.name_scope("conv4"):
+        k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1
+        rconv4W = tf.Variable(tf.random_normal([k_h,k_w,384,c_o],stddev=0.01))
+        rconv4b = tf.Variable(tf.random_normal([384],mean= 0,stddev= 0.01))
+        conv4_in = tf.nn.conv2d(conv3, rconv4W, strides=[1,s_h,s_w,1], padding='SAME')
+        conv4_add = tf.nn.bias_add(conv4_in, rconv4b)
+        conv4 = tf.nn.relu(conv4_add)
+    
+    
+    #conv5
+    with tf.name_scope("conv5"):
+        k_h = 3; k_w = 3; c_o = 256; s_h = 2; s_w = 2
+        rconv5W = tf.Variable(tf.random_normal([k_h,k_w,384,c_o],stddev=0.01))
+        rconv5b = tf.Variable(tf.random_normal([c_o],mean= 0,stddev= 0.01))
+        conv5_in = tf.nn.conv2d(conv4, rconv5W, strides=[1,s_h,s_w,1], padding='VALID')
+        conv5_add = tf.nn.bias_add(conv5_in, rconv5b)
+        conv5 = tf.nn.relu(conv5_add)
+
+
+    #fc6
+    #fc(4096, name='fc6')
+    with tf.name_scope("fc6"):
+        len_input = int(np.prod(conv5.get_shape()[1:]))
+        
+        rfc6W = tf.Variable(tf.random_normal([len_input, 4096], stddev=0.01))
+        rfc6b = tf.Variable(tf.random_normal([4096], mean= 0,stddev= 0.01))
+        fc6 = tf.nn.relu_layer(tf.reshape(conv5, [-1, len_input]), rfc6W, rfc6b)
+    
+    #fc7
+    #fc(4096, name='fc7')
+    with tf.name_scope("fc7"):
+        rfc7W = tf.Variable(tf.random_normal([4096, 4096], stddev=0.01))
+        rfc7b = tf.Variable(tf.random_normal([4096], mean= 0,stddev= 0.01))
+        fc7 = tf.nn.relu_layer(fc6, rfc7W, rfc7b)
+    
+    #fc8
+    #fc(1000, relu=False, name='fc8')
+    with tf.name_scope("fc8"):
+        rfc8W = tf.Variable(tf.random_normal([4096, 1000], stddev=0.01))
+        rfc8b = tf.Variable(tf.random_normal([1000], mean= 0,stddev= 0.01))
+        fc8 = tf.nn.xw_plus_b(fc7, rfc8W, rfc8b)     
+        prob = tf.nn.softmax(fc8)
+
+    return prob
+
+def full_alex_ds(data, model):
+
+    with tf.name_scope("Mini"):
+
+        with tf.name_scope("conv1"):
+            s_h = 8; s_w = 8
+            rconv1W = model['conv1w']
+            rconv1b = model['conv1b']
+            conv1_in = tf.nn.conv2d(data,rconv1W, strides=[1,s_h,s_w,1], padding='VALID')
+            conv1_add = tf.nn.bias_add(conv1_in, rconv1b)
+            conv1 = tf.nn.relu(conv1_add)
+            radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
+            lrn1 = tf.nn.local_response_normalization(conv1,
+                                                          depth_radius=radius,
+                                                          alpha=alpha,
+                                                          beta=beta,
+                                                          bias=bias)
+        #conv2
+        with tf.name_scope("conv2"):
+            k_h = 5; k_w = 5; c_o = 256; s_h = 2; s_w = 2
+            rconv2W = model['conv2w']
+            rconv2b = model['conv2b']        
+            conv2_in = tf.nn.conv2d(lrn1, rconv2W, strides=[1,s_h,s_w,1], padding='VALID')
+            conv2_add = tf.nn.bias_add(conv2_in, rconv2b)
+            conv2 = tf.nn.relu(conv2_add)
+            radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
+            lrn2 = tf.nn.local_response_normalization(conv2,
+                                                          depth_radius=radius,
+                                                          alpha=alpha,
+                                                          beta=beta,
+                                                          bias=bias)
+
+        #conv3
+        with tf.name_scope("conv3"):
+        #conv(3, 3, 384, 1, 1, name='conv3')
+            k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1
+            rconv3W = model['conv3w']
+            rconv3b = model['conv3b']
+            conv3_in = tf.nn.conv2d(lrn2, rconv3W, strides=[1,s_h,s_w,1], padding='SAME')
+            conv3_add = tf.nn.bias_add(conv3_in, rconv3b)
+            conv3 = tf.nn.relu(conv3_add)
+        
+        #conv4
+        with tf.name_scope("conv4"):
+            k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1
+            rconv4W = model['conv4w']
+            rconv4b = model['conv4b']
+            conv4_in = tf.nn.conv2d(conv3, rconv4W, strides=[1,s_h,s_w,1], padding='SAME')
+            conv4_add = tf.nn.bias_add(conv4_in, rconv4b)
+            conv4 = tf.nn.relu(conv4_add)
+        
+        
+        #conv5
+        with tf.name_scope("conv5"):
+            k_h = 3; k_w = 3; c_o = 256; s_h = 2; s_w = 2
+            rconv5W = model['conv5w']
+            rconv5b = model['conv5b']
+            conv5_in = tf.nn.conv2d(conv4, rconv5W, strides=[1,s_h,s_w,1], padding='VALID')
+            conv5_add = tf.nn.bias_add(conv5_in, rconv5b)
+            conv5 = tf.nn.relu(conv5_add)
+
+
+        #fc6
+        #fc(4096, name='fc6')
+        with tf.name_scope("fc6"):
+            len_input = int(np.prod(conv5.get_shape()[1:]))
+            
+            rfc6W = model['fc6w']
+            rfc6b = model['fc6b']
+            fc6 = tf.nn.relu_layer(tf.reshape(conv5, [-1, len_input]), rfc6W, rfc6b)
+        
+        #fc7
+        #fc(4096, name='fc7')
+        with tf.name_scope("fc7"):
+            rfc7W = model['fc7w']
+            rfc7b = model['fc7b']
+            fc7 = tf.nn.relu_layer(fc6, rfc7W, rfc7b)
+        
+        #fc8
+        #fc(1000, relu=False, name='fc8')
+        with tf.name_scope("fc8"):
+            rfc8W = model['fc8w']
+            rfc8b = model['fc8b']
+            fc8 = tf.nn.xw_plus_b(fc7, rfc8W, rfc8b)     
+            prob = tf.nn.softmax(fc8)
+            
+
+    return prob
 
 
 def mini_alex_ds(data,conv1W,conv1b):
