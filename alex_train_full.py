@@ -31,10 +31,10 @@ def randombatch(batchfile):
     return images
 
 
-continue_training = 1
-loop_num = 490820
+continue_training = 0
+loop_num = 0
 
-pi.purgeinvalidandRGB_img("../../dataset/VOC2012/JPEGImages") #Cleanup Invalid file in directory
+#pi.purgeinvalidandRGB_img("../../dataset/VOC2012/JPEGImages") #Cleanup Invalid file in directory
 x = tf.placeholder(tf.float32,(None,227,227,3))
 label = tf.placeholder(tf.float32,(None,1000))
 
@@ -130,8 +130,8 @@ with tf.name_scope("Mini"):
             rfc8W = tf.Variable(tf.random_normal([4096, 1000], stddev=0.01))
             rfc8b = tf.Variable(tf.random_normal([1000], mean= 0,stddev= 0.01))
             fc8 = tf.nn.xw_plus_b(fc7, rfc8W, rfc8b)     
-            #prob = tf.nn.softmax(fc8)
-            prob = fc8
+            prob = tf.nn.softmax(fc8)
+            #prob = fc8
 
         tf.summary.histogram('conv1W', rconv1W)
         tf.summary.histogram('conv1b', rconv1b)
@@ -147,8 +147,14 @@ with tf.name_scope("Mini"):
         tf.summary.histogram('r_fc8b', rfc8b)
     
 
-loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=label, logits=fc8))
-test_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=label, logits=fc8))
+#loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=label, logits=fc8))
+#test_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=label, logits=fc8))
+
+res_value = tf.subtract(prob, label)
+
+loss = tf.sqrt(tf.reduce_sum(tf.square(res_value)))
+test_loss =  tf.sqrt(tf.reduce_sum(tf.square(res_value)))
+
 tf.summary.scalar("cross_entrpy",loss)
 tf.summary.scalar("test_cross_entrpy",test_loss)
 tf.summary.histogram("label",label)
@@ -159,12 +165,12 @@ train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 
 with tf.Session() as sess:
     
-    batch_file = "../../dataset/VOC2012/JPEGImages/*.jpg"
-    test_file = "../../dataset/ilsvrc_train/*.jpg"
-    filename = "../model/half_2_full_large/fcann_v1.ckpt"
-    logfile = '../log/half_2_full_large'
-    graph_model = '../model/half_2_full_large/fcann_v1.ckpt-489000.meta'
-    checkpoint_dir = '../model/half_2_full_large'
+    batch_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train/*.jpg"
+    test_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_val/*.jpg"
+    filename = "../model/voc2012_reg/fcann_v1.ckpt"
+    logfile = '../log/voc2012_reg'
+    graph_model = '../model/voc2012_reg/fcann_v1.ckpt-489000.meta'
+    checkpoint_dir = '../model/voc2012_reg'
     
     '''
     filename = "../model/test/fcann_v1.ckpt"
@@ -210,7 +216,7 @@ with tf.Session() as sess:
     
     try:
         #while not coord.should_stop():
-        for i in range(loop_num,20000000):
+        for i in range(loop_num, 20000000):
 
             
             print("Training Step: {}".format(i))
@@ -218,16 +224,16 @@ with tf.Session() as sess:
             image_tensor = sess.run(sample_batch)
             label_van = sess.run(loss_van, feed_dict = {x:image_tensor})
                    
-            for input_im_ind in range(label_van.shape[0]):
-                inds = np.argsort(label_van)[input_im_ind,:]
+#            for input_im_ind in range(label_van.shape[0]):
+#                inds = np.argsort(label_van)[input_im_ind,:]#
 
-                for j in range(0,len(inds)):
-                    if j < len(inds)-1 : 
-                        label_van[input_im_ind, inds[j]] = 0
-                    if j >= len(inds) - 1:
-                        label_van[input_im_ind, inds[j]] = 1
-                assert label_van[input_im_ind, inds[-2]] == 0
-                assert label_van[input_im_ind, inds[-1]] == 1
+#                for j in range(0,len(inds)):
+#                    if j < len(inds)-1 : 
+#                        label_van[input_im_ind, inds[j]] = 0
+#                    if j >= len(inds) - 1:
+#                        label_van[input_im_ind, inds[j]] = 1
+#                assert label_van[input_im_ind, inds[-2]] == 0
+#                assert label_van[input_im_ind, inds[-1]] == 1
                
             _ ,summary = sess.run([train_step, merged_summary_op], feed_dict = {x:image_tensor, label:label_van}) 
            
@@ -266,20 +272,20 @@ with tf.Session() as sess:
                 saved_model = saver.save(sess, filename, global_step=i)
             
 
-            if i%5000 == 0:
+            if i%500 == 0:
 
                 test_tensor = sess.run(test_batch)
                 label_van = sess.run(loss_van, feed_dict = {x:test_tensor})
-                for input_im_ind in range(label_van.shape[0]):
-                    inds = np.argsort(label_van)[input_im_ind,:]
+#                for input_im_ind in range(label_van.shape[0]):
+#                    inds = np.argsort(label_van)[input_im_ind,:]#
 
-                    for j in range(0,len(inds)):
-                        if j < len(inds)-1 : 
-                            label_van[input_im_ind, inds[j]] = 0
-                        if j >= len(inds) - 1:
-                            label_van[input_im_ind, inds[j]] = 1
-                    assert label_van[input_im_ind, inds[-2]] == 0
-                    assert label_van[input_im_ind, inds[-1]] == 1
+#                    for j in range(0,len(inds)):
+#                        if j < len(inds)-1 : 
+#                            label_van[input_im_ind, inds[j]] = 0
+#                        if j >= len(inds) - 1:
+#                            label_van[input_im_ind, inds[j]] = 1
+#                    assert label_van[input_im_ind, inds[-2]] == 0
+#                    assert label_van[input_im_ind, inds[-1]] == 1
                
                 test_cost ,summary = sess.run([test_loss, merged_summary_op], feed_dict = {x:test_tensor, label:label_van}) 
                 print("test loss:{}".format(test_cost))
