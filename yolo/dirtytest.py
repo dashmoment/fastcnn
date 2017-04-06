@@ -30,7 +30,7 @@ inputs[0] = (img_resized_np/255.0)*2.0-1.0
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     in_dict = {yolo.x: inputs}
-    net_output = yolo.sess.run(yolo.fc_19,feed_dict=in_dict)
+    net_output = yolo.sess.run(yolo.fc_19,feed_dict={yolo.x: inputs})
 
 
 
