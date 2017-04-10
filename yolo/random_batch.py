@@ -73,12 +73,6 @@ def yolo_image_random_batch_corp(dirname, batchsize, imagesize, array_type):
         
         img_RGB = imcv2_recolor(img)
         img_resized = random_transform(img_RGB,imagesize)
-        
-        
-        cv2.imshow("img_RGB", img_resized)
-        cv2.waitKey(5)
-        
-        #img_RGB = cv2.cvtColor(img_resized,cv2.COLOR_BGR2RGB)
         img_resized_np = np.asarray( img_resized )
         inputs = (img_resized_np/255.0)*2.0-1.0
 
@@ -103,7 +97,6 @@ def imcv2_recolor(img, a = .1):
     hsv = hsv * (1 + t * a)
     mx = 255. * (1 + a)
     up = np.random.uniform() * 2 - 1
-    print(up)
     hsv = np.power(hsv/mx, 1. + up * .5)
     rgb = np.array(hsv * 255., np.uint8)
     rgb = cv2.cvtColor(rgb,cv2.COLOR_HSV2RGB)
@@ -120,20 +113,19 @@ def random_transform(img,imagesize):
     max_offsetY = (scale -1)*h
     offx = int(np.random.uniform() * max_offsetX)
     offy = int(np.random.uniform() * max_offsetY)
-    
+
     rimg = cv2.resize(img, (0,0), fx = scale, fy = scale)
-    res = rimg[offy : (offy + h), offx : (offx + w)]
-    
+    res = rimg[offy : (offy + h), offx : (offx + w)]   
     flip = np.random.binomial(1, .5)
-    print(flip)
+
     if flip: res = cv2.flip(res, 1)
-    
-    
+       
     return res
 
-dname = "/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012/JPEGImages"
-b = yolo_image_random_batch_corp(dname, 1, (448,448,3), np.float32)
-a = imcv2_recolor(b)
+#dname = "/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012/JPEGImages"
+dname = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
+b = yolo_image_random_batch_corp(dname, 128, (448,448,3), np.float32)
+
 
 
 #x = tf.placeholder(tf.float32,(None,255,255,3))

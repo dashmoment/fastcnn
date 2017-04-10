@@ -7,12 +7,48 @@ import cv2
 
 import time
 
+
+def init_yolo_weight(sess,yolo_cls, ds_yolo):
+    
+    key_pairs = {
+            'conv1w':'Variable',
+            'conv1b':'Variable_1',
+            'conv2w':'Variable_2',
+            'conv2b':'Variable_3',
+            'conv3w':'Variable_4',
+            'conv3b':'Variable_5',
+            'conv4w':'Variable_6',
+            'conv4b':'Variable_7',
+            'conv5w':'Variable_8',
+            'conv5b':'Variable_9',
+            'conv6w':'Variable_10',
+            'conv6b':'Variable_11',
+            'conv7w':'Variable_12',
+            'conv7b':'Variable_13',
+            'conv8w':'Variable_14',
+            'conv8b':'Variable_15',
+            'conv9w':'Variable_16',
+            'conv9b':'Variable_17',
+            'fc10w':'Variable_18',
+            'fc10b':'Variable_19',
+            'fc11w':'Variable_20',
+            'fc11b':'Variable_21',
+            'fc12w':'Variable_22',
+            'fc12b':'Variable_23',
+            
+            }
+    
+    for var in key_pairs:
+        yolo_var = yolo.sess.run(tf.get_default_graph().get_tensor_by_name(key_pairs[var]+':0'))
+        op = tf.assign(ds_yolo[var], yolo_var)
+        sess.run(op)
+
 batch_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
 test_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_val"
-filename = "../../model/yolo/fcann_v1.ckpt"
-logfile = '../../log/yolo'
-graph_model = '../../model/yolo/fcann_v1.ckpt-10.meta'
-checkpoint_dir = '../../model/yolo'
+filename = "../../model/yolo_ds/fcann_v1.ckpt"
+logfile = '../../log/yolo_ds'
+graph_model = '../../model/yolo_ds/fcann_v1.ckpt-0.meta'
+checkpoint_dir = '../../model/yolo_ds'
 
 #Vanilla Yolo
 yolo = YOLO_tiny_tf.YOLO_TF()
@@ -46,9 +82,8 @@ ds_yolo = {
 
 
 
-
-for var in ds_yolo:
-    tf.summary.histogram(var, ds_yolo[var], collections=['train'])
+#for var in ds_yolo:
+#    tf.summary.histogram(var, ds_yolo[var], collections=['train'])
 
      
 continue_training = 0
@@ -60,17 +95,17 @@ x = tf.placeholder(tf.float32,(None,448,448,3))
 label = tf.placeholder(tf.float32,(None,1470))
 
 #Train Phase
-yolo_ds_train = nf.yolo_vanilla_train(x,ds_yolo,keep_prob)
-#yolo_ds_train = nf.yolo_ds_train(x,ds_yolo,keep_prob)
+#yolo_ds_train = nf.yolo_vanilla_train(x,ds_yolo,keep_prob)
+yolo_ds_train = nf.yolo_ds_train(x,ds_yolo,keep_prob)
 res_value = tf.subtract(yolo_ds_train, label)
 loss = tf.sqrt(tf.reduce_sum(tf.square(res_value)))
 train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 tf.summary.scalar("train_RMSE",loss, collections=['train'])
 
 #Test Phase
-yolo_ds = nf.yolo_vanilla(x,ds_yolo,keep_prob)
+#yolo_ds = nf.yolo_vanilla(x,ds_yolo,keep_prob)
 #yolo_ds = nf.yolo_ds(x,ds_yolo,keep_prob)
-tres_value = tf.subtract(yolo_ds, label)
+tres_value = tf.subtract(yolo_ds_train, label)
 tloss = tf.sqrt(tf.reduce_sum(tf.square(tres_value)))
 tf.summary.scalar("test_RMSE",tloss, collections=['test'])
 
@@ -83,6 +118,7 @@ with tf.Session() as sess2:
     saver = tf.train.Saver()    
     sess2.run(tf.global_variables_initializer())  
     
+    
     if continue_training !=0:
         
         resaver = tf.train.import_meta_graph(graph_model)
@@ -92,20 +128,24 @@ with tf.Session() as sess2:
             sess2.run(ds_yolo[var].assign(tf.get_collection(var)[0]))
         
         continue_training = 0
+    else:
+        init_yolo_weight(sess2,yolo,ds_yolo)
     
     for i in range(loop_num, 200000000):
         
         print("Epoch:{}".format(i))
         image_src =  rb.yolo_image_random_batch(batch_file, batch_size, (448,448,3), np.float32)
         prob_label = yolo.sess.run(yolo.fc_19, feed_dict={yolo.x:image_src})
-        sess2.run(train_step, feed_dict={x:image_src, label:prob_label, keep_prob:0.5})
-        
-               
+
+        sess2.run(train_step,feed_dict={x:image_src, label:prob_label, keep_prob:0.5})
+       
+                      
         if i%500 == 0:
          
             train_loss, sumtrain = sess2.run([loss,merged_summary_train], feed_dict={x:image_src, label:prob_label, keep_prob:0.5})         
             print("Train Loss: {}".format(train_loss))
             summary_writer.add_summary(sumtrain, i)
+            
             
             for var in ds_yolo:          
                 tf.add_to_collection(var, ds_yolo[var])

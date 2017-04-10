@@ -8,7 +8,7 @@ import skimage
 from skimage import io
 
 
-root_dir = '/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012'
+root_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012'
 img_dir = os.path.join(root_dir, 'JPEGImages/')
 ann_dir = os.path.join(root_dir, 'Annotations')
 set_dir = os.path.join(root_dir, 'ImageSets', 'Main')
@@ -28,7 +28,7 @@ def list_image_sets():
         'tvmonitor']
 
 
-def imgs_from_category(cat_name, dataset):
+def imgs_from_category(cat_name, dataset, directory):
     """
     Summary
 
@@ -39,16 +39,18 @@ def imgs_from_category(cat_name, dataset):
     Returns:
         pandas dataframe: pandas DataFrame of all filenames from that category
     """
-    filename = os.path.join(set_dir,  dataset + "_" + cat_name + ".txt")
+    filename = os.path.join(directory,  dataset + "_" + cat_name + ".txt")
+    
     df = pd.read_csv(
         filename,
         delim_whitespace=True,
         header=None,
         names=['filename', 'true'])
+    
     return df
 
 
-def imgs_from_category_as_list(cat_name, dataset):
+def imgs_from_category_as_list(cat_name, dataset, directory):
     """
     Get a list of filenames for images in a particular category
     as a list rather than a pandas dataframe.
@@ -60,7 +62,7 @@ def imgs_from_category_as_list(cat_name, dataset):
     Returns:
         list of srings: all filenames from that category
     """
-    df = imgs_from_category(cat_name, dataset)
+    df = imgs_from_category(cat_name, dataset, directory)
     df = df[df['true'] == 1]
     return df['filename'].values
 
