@@ -43,12 +43,7 @@ def init_yolo_weight(sess,yolo_cls, ds_yolo):
         op = tf.assign(ds_yolo[var], yolo_var)
         sess.run(op)
 
-batch_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
-test_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_val"
-filename = "../../model/yolo_ds/fcann_v1.ckpt"
-logfile = '../../log/yolo_ds'
-graph_model = '../../model/yolo_ds/fcann_v1.ckpt-0.meta'
-checkpoint_dir = '../../model/yolo_ds'
+
 
 #Vanilla Yolo
 yolo = YOLO_tiny_tf.YOLO_TF()
@@ -85,9 +80,15 @@ ds_yolo = {
 #for var in ds_yolo:
 #    tf.summary.histogram(var, ds_yolo[var], collections=['train'])
 
-     
-continue_training = 0
-loop_num = 0
+batch_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
+test_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_val"
+filename = "../../model/yolo_ds/fcann_v1.ckpt"
+logfile = '../../log/yolo_ds'
+graph_model = '../../model/yolo_ds/fcann_v1.ckpt-55000.meta'
+checkpoint_dir = '../../model/yolo_ds'
+
+continue_training = 1
+loop_num = 66858
 batch_size = 64
 
 keep_prob = tf.placeholder(tf.float32)

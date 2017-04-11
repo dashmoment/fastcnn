@@ -39,7 +39,10 @@ def imgs_from_category(cat_name, dataset, directory):
     Returns:
         pandas dataframe: pandas DataFrame of all filenames from that category
     """
-    filename = os.path.join(directory,  dataset + "_" + cat_name + ".txt")
+    if cat_name == '':
+         filename = os.path.join(directory, dataset + ".txt")
+    else:
+        filename = os.path.join(directory,  cat_name + "_" + dataset + ".txt")
     
     df = pd.read_csv(
         filename,
@@ -63,7 +66,24 @@ def imgs_from_category_as_list(cat_name, dataset, directory):
         list of srings: all filenames from that category
     """
     df = imgs_from_category(cat_name, dataset, directory)
-    df = df[df['true'] == 1]
+    if cat_name != ''
+        df = df[df['true'] == 1]
+    return df['filename'].values
+
+def imgs_from_category_as_list(cat_name, dataset, directory):
+    """
+    Get a list of filenames for images in a particular category
+    as a list rather than a pandas dataframe.
+
+    Args:
+        cat_name (string): Category name as a string (from list_image_sets())
+        dataset (string): "train", "val", "train_val", or "test" (if available)
+
+    Returns:
+        list of srings: all filenames from that category
+    """
+    df = imgs_from_category(cat_name, dataset, directory)
+    #df = df[df['true'] == 1]
     return df['filename'].values
 
 
