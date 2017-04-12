@@ -1,23 +1,71 @@
 import tensorflow as tf
 import numpy as np
 import cv2
-from voc_parser import voc_utils as voc
+import voc_utils as voc
 import os
 import utility as ut
 
+def eval_by_img(imgname, testBB, iou_threshold):
+
+    BB = []
+    ann = voc.load_annotation(imgname)
+
+    for item in ann.find_all('object'):
+         
+        xmin = float(item.xmin.contents[0])
+        ymin = float(item.ymin.contents[0])
+        xmax = float(item.xmax.contents[0])
+        ymax = float(item.ymax.contents[0])
+        
+        tmp = [xmin, ymin, xmax, ymax]
+        BB.append(tmp)
+
+    match = matchBB(testBB, BB, iou_threshold)
+
+    return match
+
+def matchBB(testBB, gtBB, iou_threshold): #box = [xmin, ymin, xmax,ymax]
+    
+    match = []
+
+    for gtbb in gtBB:
+
+        if iou_new(testBB, gtbb) > iou_threshold:
+
+            match.append(1)
+
+        else:
+            match.append(-1)
+
+    return match
+
+
 def vocimg_preprocess(fname):
-	
-	img = cv2.imread(fname)
-	img_resized = cv2.resize(img, (448, 448))
-	img_RGB = cv2.cvtColor(img_resized,cv2.COLOR_BGR2RGB)
-	img_resized_np = np.asarray( img_RGB )
-	
-	res = np.zeros((1,448,448,3),dtype='float32')
-	res[0] = (img_resized_np/255.0)*2.0-1.0
+    
+    img = cv2.imread(fname)
+    img_resized = cv2.resize(img, (448, 448))
+    img_RGB = cv2.cvtColor(img_resized,cv2.COLOR_BGR2RGB)
+    img_resized_np = np.asarray( img_RGB )
+    
+    res = np.zeros((1,448,448,3),dtype='float32')
+    res[0] = (img_resized_np/255.0)*2.0-1.0
 
-	return res
+    return res
 
-def iou(box1,box2):
+def iou_new(box1,box2): #box = [xmin, ymin, xmax,ymax]
+
+    h1 = box1[3] - box1[1]
+    h2 = box2[3] - box2[1]
+    w1 = box1[2] - box1[0]
+    w2 = box2[2] - box2[0]
+    
+    tb = min(box1[3],box2[3]) - max(box1[1],box2[1])
+    lr = min(box1[2],box2[2]) - max(box1[0],box2[0])
+    if tb < 0 or lr < 0 : intersection = 0
+    else : intersection =  tb*lr
+    return intersection / (h1*w1 + h2*w2 - intersection)
+
+def iou(box1,box2): #box = [cx, cy, width,height]
         tb = min(box1[0]+0.5*box1[2],box2[0]+0.5*box2[2])-max(box1[0]-0.5*box1[2],box2[0]-0.5*box2[2])
         lr = min(box1[1]+0.5*box1[3],box2[1]+0.5*box2[3])-max(box1[1]-0.5*box1[3],box2[1]-0.5*box2[3])
         if tb < 0 or lr < 0 : intersection = 0

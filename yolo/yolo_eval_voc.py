@@ -7,8 +7,7 @@ import cv2
 import voc_utils as voc
 import os
 import utility as ut
-
-
+from bs4 import BeautifulSoup as soup
     
 
 img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012/JPEGImages'
@@ -17,6 +16,7 @@ graph_model = '../../model/yolo_ds/fcann_v1.ckpt-62000.meta'
 checkpoint_dir = '../../model/yolo_ds'
 classes = voc.list_image_sets()
 val_list = voc.imgs_from_category_as_list('', 'val', labelfiles)
+
 
 ds_yolo = {
         'conv1w':tf.Variable(tf.truncated_normal([3,3,3,16], mean=0, stddev=0.01)),
@@ -51,35 +51,49 @@ yolo_ds = nf.yolo_ds(x,ds_yolo,keep_prob)
 
 file_handler = open('test.txt', 'w')
 
-with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())  
+#fpath = os.path.join(img_root,val_list[0]+'.jpg')
+fpath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012/JPEGImages/2008_000002.jpg'
+inputs = ut.vocimg_preprocess(fpath)
+
+with tf.Session() as sess2:
+    
+    sess2.run(tf.global_variables_initializer())  
     resaver = tf.train.import_meta_graph(graph_model)
-    resaver.restore(sess, tf.train.latest_checkpoint(checkpoint_dir))
+    resaver.restore(sess2, tf.train.latest_checkpoint(checkpoint_dir))
 
     for var in ds_yolo:
-        sess.run(ds_yolo[var].assign(tf.get_collection(var)[0]))
+        sess2.run(ds_yolo[var].assign(tf.get_collection(var)[0]))
         
-    a = sess.run(ds_yolo[var])
 
     idx = 1
-    for fname in val_list:
+    #for fname in val_list:
         
-        fpath = os.path.join(img_root,fname+'.jpg')
-        inputs = ut.vocimg_preprocess(fpath)
-        
-        print("Test File:{}/{}".format(idx,len(val_list)))
-        idx = idx + 1
-        prob_label = sess.run(yolo_ds,feed_dict={x:inputs, keep_prob:0.5})
-        results = ut.interpret_output(prob_label[0])
-        
-        for i in range(len(results)):
-            xmin = int(results[i][1])
-            ymin = int(results[i][2])
-            xmax = xmin + int(results[i][3])
-            ymax = ymin + int(results[i][4]) 
-            file_handler.write("{} {} {} {} {} {}\n".format(fname, results[i][5],xmin,ymin,xmax,ymax))
-        
-
+    
+    
+    print("Test File:{}/{}".format(idx,len(val_list)))
+    idx = idx + 1
+    prob_label = sess2.run(yolo_ds,feed_dict={x:inputs, keep_prob:0.5})
+    results = ut.interpret_output(prob_label[0])
+    print(results)
+    
+#    for i in range(len(results)):
+#        
+#        cx = int(results[i][1])
+#        cy = int(results[i][2])
+#        w = int(results[i][3])//2
+#        h = int(results[i][4])//2
+#        
+#        xmin = cx-w
+#        ymin = cy-h
+#        xmax = cx+w
+#        ymax = cy+h 
+#        tbb = [xmin, ymin, xmax, ymax]
+#        res = ut.eval_by_img(val_list[0], tbb, 0.5)
+#        print(res)
+#        
+#        #file_handler.write("{} {} {} {} {} {}\n".format(fname, results[i][5],xmin,ymin,xmax,ymax))
+#        
+#    ut.show_results(inputs[0],results)
     
     
     

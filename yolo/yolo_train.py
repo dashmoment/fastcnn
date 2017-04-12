@@ -88,7 +88,7 @@ graph_model = '../../model/yolo_ds/fcann_v1.ckpt-55000.meta'
 checkpoint_dir = '../../model/yolo_ds'
 
 continue_training = 1
-loop_num = 66858
+loop_num = 800000
 batch_size = 64
 
 keep_prob = tf.placeholder(tf.float32)

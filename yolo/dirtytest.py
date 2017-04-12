@@ -14,7 +14,7 @@ import yolo_netfactory as nf
 import random_batch as rb
 import YOLO_tiny_tf
 import cv2
-
+import utility as ut
 import time
 
 #root_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012'
@@ -179,7 +179,7 @@ ds_yolo = {
 x = tf.placeholder(tf.float32,(None,448,448,3))
 keep_prob = tf.placeholder(tf.float32)
 
-fromfile = "test/person.jpg"
+fromfile = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012/JPEGImages/2008_000002.jpg'
 img = cv2.imread(fromfile)
 img_resized = cv2.resize(img, (448, 448))
 img_RGB = cv2.cvtColor(img_resized,cv2.COLOR_BGR2RGB)
@@ -208,11 +208,11 @@ with tf.Session() as sess:
     cost = sess.run(loss)
     print("Total Loss:{}".format(cost))
     
-    results = yolo.interpret_output(res[0])
-    yolo.show_results(img_resized,results)
+    results = ut.interpret_output(res[0])
+    ut.show_results(img_resized,results)
     
-    results = yolo.interpret_output(res_n[0])
-    yolo.show_results(img_resized,results)
+#    results2 = ut.interpret_output(res_n[0])
+#    ut.show_results(img_resized,results2)
     
     
 #    filter_mat_probs = np.array(probs>=0.2,dtype='bool')

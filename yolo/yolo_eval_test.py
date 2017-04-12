@@ -4,76 +4,10 @@ import yolo_netfactory as nf
 import random_batch as rb
 import YOLO_tiny_tf
 import cv2
-from voc_parser import voc_utils
+import utility as ut
 
 import time
 
-def iou(box1,box2):
-        tb = min(box1[0]+0.5*box1[2],box2[0]+0.5*box2[2])-max(box1[0]-0.5*box1[2],box2[0]-0.5*box2[2])
-        lr = min(box1[1]+0.5*box1[3],box2[1]+0.5*box2[3])-max(box1[1]-0.5*box1[3],box2[1]-0.5*box2[3])
-        if tb < 0 or lr < 0 : intersection = 0
-        else : intersection =  tb*lr
-        return intersection / (box1[2]*box1[3] + box2[2]*box2[3] - intersection)
-
-def interpret_output(intputs):
-    
-        threshold = 0.05
-        iou_threshold = 0.2
-        classes =  ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train","tvmonitor"]
-        output =  np.copy(intputs)
-    
-        w_img = 448
-        h_img = 448
-        
-        probs = np.zeros((7,7,2,20))
-        class_probs = np.reshape(output[0:980],(7,7,20))
-        scales = np.reshape(output[980:1078],(7,7,2))
-        boxes = np.reshape(output[1078:],(7,7,2,4))
-        offset = np.transpose(np.reshape(np.array([np.arange(7)]*14),(2,7,7)),(1,2,0))
-
-        boxes[:,:,:,0] += offset
-        boxes[:,:,:,1] += np.transpose(offset,(1,0,2))
-        boxes[:,:,:,0:2] = boxes[:,:,:,0:2] / 7.0
-        boxes[:,:,:,2] = np.multiply(boxes[:,:,:,2],boxes[:,:,:,2])
-        boxes[:,:,:,3] = np.multiply(boxes[:,:,:,3],boxes[:,:,:,3])
-        
-        boxes[:,:,:,0] *= w_img
-        boxes[:,:,:,1] *= h_img
-        boxes[:,:,:,2] *= w_img
-        boxes[:,:,:,3] *= h_img
-
-        for i in range(2):
-            for j in range(20):
-                probs[:,:,i,j] = np.multiply(class_probs[:,:,j],scales[:,:,i])
-
-        filter_mat_probs = np.array(probs>=threshold,dtype='bool')
-        filter_mat_boxes = np.nonzero(filter_mat_probs)
-        boxes_filtered = boxes[filter_mat_boxes[0],filter_mat_boxes[1],filter_mat_boxes[2]]
-        probs_filtered = probs[filter_mat_probs]
-        classes_num_filtered = np.argmax(filter_mat_probs,axis=3)[filter_mat_boxes[0],filter_mat_boxes[1],filter_mat_boxes[2]] 
-
-        argsort = np.array(np.argsort(probs_filtered))[::-1]
-        boxes_filtered = boxes_filtered[argsort]
-        probs_filtered = probs_filtered[argsort]
-        classes_num_filtered = classes_num_filtered[argsort]
-        print(classes_num_filtered)
-        
-        for i in range(len(boxes_filtered)):
-            if probs_filtered[i] == 0 : continue
-            for j in range(i+1,len(boxes_filtered)):
-                if iou(boxes_filtered[i],boxes_filtered[j]) > iou_threshold : 
-                    probs_filtered[j] = 0.0
-        
-        filter_iou = np.array(probs_filtered>0.0,dtype='bool')
-        boxes_filtered = boxes_filtered[filter_iou]
-        probs_filtered = probs_filtered[filter_iou]
-        classes_num_filtered = classes_num_filtered[filter_iou]
-
-        result = []
-        for i in range(len(boxes_filtered)):
-            result.append([classes[classes_num_filtered[i]],boxes_filtered[i][0],boxes_filtered[i][1],boxes_filtered[i][2],boxes_filtered[i][3],probs_filtered[i]])
-
-        return result
 
 def init_yolo_weight(sess,yolo_cls, ds_yolo):
     
@@ -164,18 +98,18 @@ loss = tf.sqrt(tf.reduce_sum(tf.square(res_value)))
 #train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 #tf.summary.scalar("train_RMSE",loss, collections=['train'])
 
-fromfile = "test/person.jpg"
-img = cv2.imread(fromfile)
-img_resized = cv2.resize(img, (448, 448))
-img_RGB = cv2.cvtColor(img_resized,cv2.COLOR_BGR2RGB)
-img_resized_np = np.asarray( img_RGB )
-inputs = np.zeros((1,448,448,3),dtype='float32')
-inputs[0] = (img_resized_np/255.0)*2.0-1.0
+fromfile = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012/JPEGImages/2008_000002.jpg'
+inputs = ut.vocimg_preprocess(fromfile)
+#img = cv2.imread(fromfile)
+#img_resized = cv2.resize(img, (448, 448))
+#img_RGB = cv2.cvtColor(img_resized,cv2.COLOR_BGR2RGB)
+#img_resized_np = np.asarray( img_RGB )
+#inputs = np.zeros((1,448,448,3),dtype='float32')
+#inputs[0] = (img_resized_np/255.0)*2.0-1.0
 
 with tf.Session() as sess2:
     
     
-    saver = tf.train.Saver()    
     sess2.run(tf.global_variables_initializer())  
         
     resaver = tf.train.import_meta_graph(graph_model)
@@ -200,13 +134,13 @@ with tf.Session() as sess2:
     loss = sess2.run(loss,feed_dict={x:inputs, label:prob_label,keep_prob:0.5})
        
                       
-    results = interpret_output(prob_label[0])
+    results_o = ut.interpret_output(prob_label[0])
 #    yolo.show_results(img_resized,results)
     
     
-    results_new = interpret_output(prob_label_new[0])
+    results_new = ut.interpret_output(prob_label_new[0])
 #    yolo.show_results(img_resized,results_new)
-    
+    print(results_new)
     
     
    

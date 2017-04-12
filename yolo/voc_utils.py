@@ -66,8 +66,10 @@ def imgs_from_category_as_list(cat_name, dataset, directory):
         list of srings: all filenames from that category
     """
     df = imgs_from_category(cat_name, dataset, directory)
-    if cat_name != ''
+    if cat_name != '':
         df = df[df['true'] == 1]
+    else:
+        df = df
     return df['filename'].values
 
 def imgs_from_category_as_list(cat_name, dataset, directory):
@@ -117,7 +119,7 @@ def load_annotation(img_filename):
     with open(annotation_file_from_img(img_filename)) as f:
         xml = f.readlines()
     xml = ''.join([line.strip('\t') for line in xml])
-    return BeautifulSoup(xml)
+    return BeautifulSoup(xml,"html5lib")
 
 
 # TODO: implement this
