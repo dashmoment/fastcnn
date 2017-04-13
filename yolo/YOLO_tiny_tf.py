@@ -17,8 +17,8 @@ class YOLO_TF:
     disp_console = True
     weights_file = '/home/ubuntu/workspace/fastcnn/model/yolo_model/YOLO_tiny.ckpt'
     alpha = 0.1
-    threshold = 0.2
-    iou_threshold = 0.5
+    threshold = 0.05 #0.2
+    iou_threshold = 0.2 #0.5
     num_class = 20
     num_box = 2
     grid_size = 7
@@ -45,6 +45,8 @@ class YOLO_TF:
                 else : self.disp_console = False
                 
     def build_networks(self):
+
+
         if self.disp_console : print ("Building YOLO_tiny graph...")
         self.x = tf.placeholder('float32',[None,448,448,3])
         self.conv_1 = self.conv_layer(1,self.x,16,3,1)
@@ -201,6 +203,8 @@ class YOLO_TF:
         result = []
         for i in range(len(boxes_filtered)):
             result.append([self.classes[classes_num_filtered[i]],boxes_filtered[i][0],boxes_filtered[i][1],boxes_filtered[i][2],boxes_filtered[i][3],probs_filtered[i]])
+
+        print(result)
 
         return result
 

@@ -5,44 +5,71 @@ import voc_utils as voc
 import os
 import utility as ut
 
-def eval_by_img(imgname, testBB, iou_threshold):
+def cov_yoloBB2VOC(results):
+    
+    cls_name = results[0]
+    cx = int(results[1])
+    cy = int(results[2])
+    w = int(results[3])//2
+    h = int(results[4])//2
+    
+    xmin = cx-w
+    ymin = cy-h
+    xmax = cx+w
+    ymax = cy+h 
+    tbb = [xmin, ymin, xmax, ymax, cls_name]
+
+    return tbb
+
+
+def eval_by_obj(imgname, testBB, iou_threshold):
 
     BB = []
     ann = voc.load_annotation(imgname)
 
     for item in ann.find_all('object'):
-         
+
+        find_cls = item.find_all('name')
+        class_name = find_cls[0].contents[0]
+        print("GT class:{}".format(class_name))
+
         xmin = float(item.xmin.contents[0])
         ymin = float(item.ymin.contents[0])
         xmax = float(item.xmax.contents[0])
         ymax = float(item.ymax.contents[0])
         
-        tmp = [xmin, ymin, xmax, ymax]
+        tmp = [xmin, ymin, xmax, ymax,class_name]
         BB.append(tmp)
+
+
 
     match = matchBB(testBB, BB, iou_threshold)
 
-    return match
+
+    return match,BB
 
 def matchBB(testBB, gtBB, iou_threshold): #box = [xmin, ymin, xmax,ymax]
     
-    match = []
+    match = 0
 
     for gtbb in gtBB:
 
-        if iou_new(testBB, gtbb) > iou_threshold:
+        print("iou:{}".format(iou_new(testBB, gtbb)))
 
-            match.append(1)
+        if iou_new(testBB, gtbb) > iou_threshold and testBB[4] == gtbb[4]:
 
+            match = 1
         else:
-            match.append(-1)
-
+            match = -1
+        
+    assert  match != 0
     return match
 
 
 def vocimg_preprocess(fname):
     
     img = cv2.imread(fname)
+    h_img, w_img,_ = img.shape
     img_resized = cv2.resize(img, (448, 448))
     img_RGB = cv2.cvtColor(img_resized,cv2.COLOR_BGR2RGB)
     img_resized_np = np.asarray( img_RGB )
@@ -50,7 +77,7 @@ def vocimg_preprocess(fname):
     res = np.zeros((1,448,448,3),dtype='float32')
     res[0] = (img_resized_np/255.0)*2.0-1.0
 
-    return res
+    return w_img, h_img, res
 
 def iou_new(box1,box2): #box = [xmin, ymin, xmax,ymax]
 
@@ -58,7 +85,7 @@ def iou_new(box1,box2): #box = [xmin, ymin, xmax,ymax]
     h2 = box2[3] - box2[1]
     w1 = box1[2] - box1[0]
     w2 = box2[2] - box2[0]
-    
+
     tb = min(box1[3],box2[3]) - max(box1[1],box2[1])
     lr = min(box1[2],box2[2]) - max(box1[0],box2[0])
     if tb < 0 or lr < 0 : intersection = 0
@@ -72,16 +99,14 @@ def iou(box1,box2): #box = [cx, cy, width,height]
         else : intersection =  tb*lr
         return intersection / (box1[2]*box1[3] + box2[2]*box2[3] - intersection)
 
-def interpret_output(intputs):
-    
+def interpret_output(intputs,w_img, h_img):
+        
+        
         threshold = 0.05
         iou_threshold = 0.2
         classes =  ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train","tvmonitor"]
         output =  np.copy(intputs)
     
-        w_img = 448
-        h_img = 448
-        
         probs = np.zeros((7,7,2,20))
         class_probs = np.reshape(output[0:980],(7,7,20))
         scales = np.reshape(output[980:1078],(7,7,2))

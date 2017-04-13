@@ -47,9 +47,9 @@ def fc_layer(input_src, weight, bias, flat = False,linear = False):
 def pooling_layer(inputs,size,stride):
 		return tf.nn.max_pool(inputs, ksize=[1, size, size, 1],strides=[1, stride, stride, 1], padding='SAME')
 
-def yolo_vanilla_train(data, ds_yolo, keep_prob):
+def yolo_vanilla_train(scope,data, ds_yolo, keep_prob):
     
-     with tf.name_scope("yolo_vanilla_train"):
+     with tf.name_scope(scope):
          
         with tf.name_scope("conv1"):
             conv1 = conv(data, ds_yolo['conv1w'], ds_yolo['conv1b'],1,3)
@@ -110,9 +110,9 @@ def yolo_vanilla_train(data, ds_yolo, keep_prob):
      return fc12
 
 
-def yolo_vanilla(data, ds_yolo, keep_prob):
+def yolo_vanilla(scope, data, ds_yolo, keep_prob):
     
-     with tf.name_scope("yolo_vanilla_test"):
+     with tf.name_scope(scope):
          
         with tf.name_scope("conv1"):
             conv1 = conv(data, ds_yolo['conv1w'], ds_yolo['conv1b'],1,3)
@@ -171,9 +171,9 @@ def yolo_vanilla(data, ds_yolo, keep_prob):
 
      return fc12
 
-def yolo_ds_train(data, ds_yolo, keep_prob):
+def yolo_ds_train(scope,data, ds_yolo, keep_prob):
     
-    with tf.name_scope("ds_yolo_train"):
+    with tf.name_scope(scope):
         with tf.name_scope("conv1"):
             conv1 = conv(data, ds_yolo['conv1w'], ds_yolo['conv1b'],2,3)
             
@@ -204,11 +204,9 @@ def yolo_ds_train(data, ds_yolo, keep_prob):
         with tf.name_scope("fc10"):
             fc10 = fc_layer(conv9, ds_yolo['fc10w'], ds_yolo['fc10b'],flat=True,linear=False)
             
-        with tf.name_scope("dropout1"):
-            dropout1 = tf.nn.dropout(fc10, keep_prob)
         
         with tf.name_scope("fc11"):
-            fc11 = fc_layer(dropout1, ds_yolo['fc11w'], ds_yolo['fc11b'],flat=False,linear=False)
+            fc11 = fc_layer(fc10, ds_yolo['fc11w'], ds_yolo['fc11b'],flat=False,linear=False)
     
         with tf.name_scope("dropout2"):
             dropout2 = tf.nn.dropout(fc11, keep_prob)
@@ -219,9 +217,9 @@ def yolo_ds_train(data, ds_yolo, keep_prob):
 
     return fc12
 
-def yolo_ds(data, ds_yolo, keep_prob):
+def yolo_ds(scope, data, ds_yolo, keep_prob):
     
-    with tf.name_scope("ds_yolo"):
+    with tf.name_scope(scope):
         with tf.name_scope("conv1"):
             conv1 = conv(data, ds_yolo['conv1w'], ds_yolo['conv1b'],2,3)
             
