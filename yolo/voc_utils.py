@@ -66,27 +66,28 @@ def imgs_from_category_as_list(cat_name, dataset, directory):
         list of srings: all filenames from that category
     """
     df = imgs_from_category(cat_name, dataset, directory)
+
     if cat_name != '':
         df = df[df['true'] == 1]
     else:
         df = df
     return df['filename'].values
 
-def imgs_from_category_as_list(cat_name, dataset, directory):
-    """
-    Get a list of filenames for images in a particular category
-    as a list rather than a pandas dataframe.
+#def imgs_from_category_as_list(cat_name, dataset, directory):
+#    """
+#    Get a list of filenames for images in a particular category
+#    as a list rather than a pandas dataframe.#
 
-    Args:
-        cat_name (string): Category name as a string (from list_image_sets())
-        dataset (string): "train", "val", "train_val", or "test" (if available)
+#    Args:
+#        cat_name (string): Category name as a string (from list_image_sets())
+#        dataset (string): "train", "val", "train_val", or "test" (if available)#
 
-    Returns:
-        list of srings: all filenames from that category
-    """
-    df = imgs_from_category(cat_name, dataset, directory)
-    #df = df[df['true'] == 1]
-    return df['filename'].values
+#    Returns:
+#        list of srings: all filenames from that category
+#    """
+#    df = imgs_from_category(cat_name, dataset, directory)
+#    #df = df[df['true'] == 1]
+#    return df['filename'].values
 
 
 def annotation_file_from_img(img_name):
@@ -116,10 +117,17 @@ def load_annotation(img_filename):
             BeautifulSoup data structure
     """
     xml = ""
-    with open(annotation_file_from_img(img_filename)) as f:
-        xml = f.readlines()
-    xml = ''.join([line.strip('\t') for line in xml])
+
+    if os.path.isfile(annotation_file_from_img(img_filename)):
+
+        
+        with open(annotation_file_from_img(img_filename)) as f:
+
+            xml = f.readlines()
+        xml = ''.join([line.strip('\t') for line in xml])
+
     return BeautifulSoup(xml,"html5lib")
+    
 
 
 # TODO: implement this

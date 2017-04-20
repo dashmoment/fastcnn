@@ -5,6 +5,60 @@ import voc_utils as voc
 import os
 import utility as ut
 
+
+
+def GAN_vanilla(scope, d_real_logit,d_fake_logit,d_real_prob,d_fake_prob):
+
+    d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_real_logit, labels=tf.ones_like(d_real_logit)))
+    d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_fake_logit, labels=tf.zeros_like(d_fake_logit)))
+    d_loss = d_loss_real + d_loss_fake
+    g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_fake_logit, labels=tf.ones_like(d_fake_logit)))
+
+    return d_loss, g_loss
+
+def GAN_LS(scope, d_real_logit,d_fake_logit,d_real_prob,d_fake_prob):
+
+    d_loss = 0.5 * (tf.reduce_mean((d_real_logit - 1)**2) + tf.reduce_mean(d_fake_logit**2))
+    g_loss = 0.5 * tf.reduce_mean((d_fake_logit - 1)**2)
+
+    return d_loss, g_loss
+
+
+def init_yolo_weight(sess,yolo_cls, ds_yolo):
+    
+    key_pairs = {
+            'conv1w':'Variable',
+            'conv1b':'Variable_1',
+            'conv2w':'Variable_2',
+            'conv2b':'Variable_3',
+            'conv3w':'Variable_4',
+            'conv3b':'Variable_5',
+            'conv4w':'Variable_6',
+            'conv4b':'Variable_7',
+            'conv5w':'Variable_8',
+            'conv5b':'Variable_9',
+            'conv6w':'Variable_10',
+            'conv6b':'Variable_11',
+            'conv7w':'Variable_12',
+            'conv7b':'Variable_13',
+            'conv8w':'Variable_14',
+            'conv8b':'Variable_15',
+            'conv9w':'Variable_16',
+            'conv9b':'Variable_17',
+            'fc10w':'Variable_18',
+            'fc10b':'Variable_19',
+            'fc11w':'Variable_20',
+            'fc11b':'Variable_21',
+            'fc12w':'Variable_22',
+            'fc12b':'Variable_23',
+            
+            }
+    
+    for var in key_pairs:
+        yolo_var = yolo.sess.run(tf.get_default_graph().get_tensor_by_name(key_pairs[var]+':0'))
+        op = tf.assign(ds_yolo[var], yolo_var)
+        sess.run(op)
+
 def cov_yoloBB2VOC(results):
     
     cls_name = results[0]
@@ -21,6 +75,16 @@ def cov_yoloBB2VOC(results):
 
     return tbb
 
+def calc_objec_num(imgname):
+
+    nBB = 0
+
+    ann = voc.load_annotation(imgname)
+    for item in ann.find_all('object'):
+        nBB = nBB + 1
+
+    return nBB
+
 
 def eval_by_obj(imgname, testBB, iou_threshold):
 
@@ -31,7 +95,6 @@ def eval_by_obj(imgname, testBB, iou_threshold):
 
         find_cls = item.find_all('name')
         class_name = find_cls[0].contents[0]
-        print("GT class:{}".format(class_name))
 
         xmin = float(item.xmin.contents[0])
         ymin = float(item.ymin.contents[0])
@@ -45,8 +108,7 @@ def eval_by_obj(imgname, testBB, iou_threshold):
 
     match = matchBB(testBB, BB, iou_threshold)
 
-
-    return match,BB
+    return match
 
 def matchBB(testBB, gtBB, iou_threshold): #box = [xmin, ymin, xmax,ymax]
     
@@ -54,7 +116,7 @@ def matchBB(testBB, gtBB, iou_threshold): #box = [xmin, ymin, xmax,ymax]
 
     for gtbb in gtBB:
 
-        print("iou:{}".format(iou_new(testBB, gtbb)))
+        #print("iou:{}".format(iou_new(testBB, gtbb)))
 
         if iou_new(testBB, gtbb) > iou_threshold and testBB[4] == gtbb[4]:
 
@@ -62,7 +124,6 @@ def matchBB(testBB, gtBB, iou_threshold): #box = [xmin, ymin, xmax,ymax]
         else:
             match = -1
         
-    assert  match != 0
     return match
 
 
@@ -102,8 +163,8 @@ def iou(box1,box2): #box = [cx, cy, width,height]
 def interpret_output(intputs,w_img, h_img):
         
         
-        threshold = 0.05
-        iou_threshold = 0.2
+        threshold = 0.1
+        iou_threshold = 0.5
         classes =  ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train","tvmonitor"]
         output =  np.copy(intputs)
     
