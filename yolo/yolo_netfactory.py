@@ -383,3 +383,50 @@ def yolo_ds(scope, data, ds_yolo, keep_prob):
 
 
     return fc12
+
+
+def yolo_dinception(scope,data, ds_yolo, keep_prob, train):
+    
+    with tf.name_scope(scope):
+        with tf.name_scope("conv1"):
+            conv1 = conv(data, ds_yolo['conv1w'], ds_yolo['conv1b'],2,3)
+            
+        with tf.name_scope("conv2"):
+            conv2 = conv(conv1, ds_yolo['conv2w'], ds_yolo['conv2b'],2,3)
+            
+        with tf.name_scope("conv3"):
+            conv3 = conv(conv2, ds_yolo['conv3w'], ds_yolo['conv3b'],2,3)
+            
+        with tf.name_scope("conv4"):
+            conv4 = conv(conv3, ds_yolo['conv4w'], ds_yolo['conv4b'],2,3)
+            
+        with tf.name_scope("conv5"):
+            conv5 = conv(conv4, ds_yolo['conv5w'], ds_yolo['conv5b'],2,3)
+            
+        with tf.name_scope("conv6"):
+            conv6 = conv(conv5, ds_yolo['conv6w'], ds_yolo['conv6b'],2,3)
+            
+        with tf.name_scope("conv7"):
+            conv7 = conv(conv6, ds_yolo['conv7w'], ds_yolo['conv7b'],1,3)
+           
+        with tf.name_scope("fc10"):
+            fc10 = fc_layer(conv6, ds_yolo['fc10w'], ds_yolo['fc10b'],flat=True,linear=False)           
+        
+        with tf.name_scope("fc11"):
+            fc11 = fc_layer(fc10, ds_yolo['fc11w'], ds_yolo['fc11b'],flat=False,linear=False)#
+        
+        if train == True:
+            print("Train config")    
+            with tf.name_scope("dropout"):
+                dropout2 = tf.nn.dropout(fc11, keep_prob)
+            
+            with tf.name_scope("fc12"):
+                fc12 = fc_layer(dropout2, ds_yolo['fc12w'], ds_yolo['fc12b'],flat=False,linear=True)
+        else:
+            print("Test config") 
+            with tf.name_scope("fc12"):
+                fc12 = fc_layer(fc11, ds_yolo['fc12w'], ds_yolo['fc12b'],flat=False,linear=True)
+
+
+
+    return fc12    

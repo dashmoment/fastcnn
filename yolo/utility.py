@@ -6,24 +6,6 @@ import os
 import utility as ut
 
 
-
-def GAN_vanilla(scope, d_real_logit,d_fake_logit,d_real_prob,d_fake_prob):
-
-    d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_real_logit, labels=tf.ones_like(d_real_logit)))
-    d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_fake_logit, labels=tf.zeros_like(d_fake_logit)))
-    d_loss = d_loss_real + d_loss_fake
-    g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_fake_logit, labels=tf.ones_like(d_fake_logit)))
-
-    return d_loss, g_loss
-
-def GAN_LS(scope, d_real_logit,d_fake_logit,d_real_prob,d_fake_prob):
-
-    d_loss = 0.5 * (tf.reduce_mean((d_real_logit - 1)**2) + tf.reduce_mean(d_fake_logit**2))
-    g_loss = 0.5 * tf.reduce_mean((d_fake_logit - 1)**2)
-
-    return d_loss, g_loss
-
-
 def init_yolo_weight(sess,yolo_cls, ds_yolo):
     
     key_pairs = {

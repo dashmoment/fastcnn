@@ -9,41 +9,14 @@ import time
 
 
 
-
-tmodel_var_list = [
-            ['conv1w',[3,3,3,16]],
-            ['conv1b',[16]],
-            ['conv2w',[3,3,16,16]],
-            ['conv2b',[16]],
-            ['conv3w',[3,3,16,32]],
-            ['conv3b',[32]],
-            ['conv4w',[3,3,32,64]],
-            ['conv4b',[64]],
-            ['conv5w',[3,3,64,128]],
-            ['conv5b',[128]],
-            ['conv6w',[3,3,128,256]],
-            ['conv6b',[256]],
-            ['conv7w',[3,3,256,512]],
-            ['conv7b',[512]],
-            ['conv8w',[3,3,512,512]],
-            ['conv8b',[512]],
-            ['conv9w',[3,3,512,512]],
-            ['conv9b',[512]],
-            ['fc10w',[25088,128]],
-            ['fc10b',[128]],
-            ['fc11w',[128,2048]],
-            ['fc11b',[2048]],
-            ['fc12w',[2048,1470]],
-            ['fc12b',[1470]]]
-
 #Vanilla Yolo
 scope = 'train'
 yolo = YOLO_tiny_tf.YOLO_TF()
-ds_yolo = mut.create_var_tnorm(scope,tmodel_var_list)
 
+#Target Model
+model_ticket = {'root':yolo_tiny, 'branch':'double_cut89'}
+ds_yolo = mut.create_var_tnorm(scope,mut.model_zoo(model_ticket))
 
-#for var in ds_yolo:
-#    tf.summary.histogram(var, ds_yolo[var], collections=['train'])
 
 batch_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
 test_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_val"
