@@ -1,311 +1,165 @@
-import net_factory
 import tensorflow as tf
+import operator
 import numpy as np
-import matplotlib.image as mpimg
-from scipy.misc import imread
-from scipy.misc import imresize
-from caffe_classes import class_names
-from PIL import Image
-import matplotlib.pyplot as plt
-import time
+
+tensor_1 = tf.Variable(tf.random_normal([3,3,20]))
+reduce_t1 = tf.reduce_mean(tensor_1, axis=[0,1]) 
+tensor_2 = tf.Variable(tf.random_normal([3,3,3]))
+intra_lose = [tf.Variable(tf.zeros([1])), tf.Variable(tf.zeros([1])), tf.Variable(tf.zeros([1])), tf.Variable(tf.zeros([1])), tf.Variable(tf.zeros([1]))]
+loss = tf.Variable(tf.zeros([1]))
+
+Nfilter = 3
 
 
-
-
-#"../../dataset/VOC2012/JPEGImages/*.jpg"
-#"../../dataset/ilsvrc_train/*.jpg"
-
-def randombatch():
-    filenames = tf.train.match_filenames_once("../../dataset/VOC2012/JPEGImages/*.jpg")
-    file_queue =  tf.train.string_input_producer( filenames)
-    image_reader = tf.WholeFileReader()
-    _, image_file = image_reader.read(file_queue)
-    image_orig = tf.image.decode_jpeg(image_file)
-    image = tf.image.resize_images(image_orig, [227, 227])
-    image.set_shape((227, 227, 3))   
-    num_preprocess_threads = 5
-    min_queue_examples = 500
-    batch_size = 1
-    
-    images = tf.train.shuffle_batch(
-            [image],
-            batch_size=batch_size,
-            num_threads=num_preprocess_threads,
-            capacity=min_queue_examples + (num_preprocess_threads +50)*batch_size,
-            min_after_dequeue=min_queue_examples)
-    
-    return images
-
-dsalex_model = {
-        'conv1w':tf.Variable(tf.random_normal([11,11,3,96],stddev=0.01)),
-        'conv1b':tf.Variable(tf.random_normal([96],mean= 0,stddev= 0.01)),
-        'conv2w':tf.Variable(tf.random_normal([5,5,96,256],stddev=0.01)),
-        'conv2b':tf.Variable(tf.random_normal([256],mean= 0,stddev= 0.01)),
-        'conv3w':tf.Variable(tf.random_normal([3,3,256,384],stddev=0.01)),
-        'conv3b':tf.Variable(tf.random_normal([384],mean= 0,stddev= 0.01)),
-        'conv4w':tf.Variable(tf.random_normal([3,3,384,384],stddev=0.01)),
-        'conv4b':tf.Variable(tf.random_normal([384],mean= 0,stddev= 0.01)),
-        'conv5w':tf.Variable(tf.random_normal([3,3,384,256],stddev=0.01)),
-        'conv5b':tf.Variable(tf.random_normal([256],mean= 0,stddev= 0.01)),
-        'fc6w':tf.Variable(tf.random_normal([6400, 4096], stddev=0.01)),
-        'fc6b':tf.Variable(tf.random_normal([4096], mean= 0,stddev= 0.01)),
-        'fc7w':tf.Variable(tf.random_normal([4096, 4096], stddev=0.01)),
-        'fc7b':tf.Variable(tf.random_normal([4096], mean= 0,stddev= 0.01)),
-        'fc8w':tf.Variable(tf.random_normal([4096, 1000], stddev=0.01)),
-        'fc8b':tf.Variable(tf.random_normal([1000], mean= 0,stddev= 0.01))
+var_list = {
+        'conv1': [3,3,20],
+        'conv2': [3,3,10],
+        
         }
 
 
-batch_file = "../../dataset/VOC2012/JPEGImages/*.jpg"
-test_file = "../../dataset/ilsvrc_train/*.jpg"
-filename = "../model/half_2_full_large/fcann_v1.ckpt"
-logfile = '../log/half_2_full_large'
-graph_model = '../model/half_2_full_large/fcann_v1.ckpt-489000.meta'
-checkpoint_dir = '../model/half_2_full_large'
+def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
+    
+    v1 = []
+    scope_dict = {}
+    
+    for idx in range(Nlayers):
+        
+        scope_name = scope + '_' + str(idx)
+        with tf.variable_scope(scope_name):
+            
+            name_dict = []
+            for i in init_layers:
 
-sample_batch = randombatch()
-x = tf.placeholder(tf.float32,(None,227,227,3))
-image_submean = tf.subtract(x, tf.reduce_mean(x))
-net = net_factory.vanilla_alex_full(image_submean)
-mininet = net_factory.full_alex_ds(image_submean,dsalex_model)
+            	shape = init_layers[i]
+            	if(idx != 0): shape[2] = int(init_layers[i][2] - reduce_percent*(init_layers[i][2]))
+            	init_layers[i] = shape
+            	print("shape:{}".format(init_layers[i]))
+                
+                if scope_name == "tesnor_0" and i == "conv1":
+                    v1 = tf.get_variable(i,init_layers[i], initializer=tf.contrib.layers.xavier_initializer())
+                else:
+                    tf.get_variable(i,init_layers[i], initializer=tf.contrib.layers.xavier_initializer())
+
+                name_dict.append(i)
+        scope_dict[scope_name] = name_dict 
+    return scope_dict,v1
+             
+        
+
+def partition_by_rank(sess, inputs, output, ptype = 'Mean'):
+    
+    inputs = sess.run(inputs)
+    output_dim = sess.run(output)
+    
+    partition_shape = np.zeros(inputs.shape)
+    
+    if ptype == 'Mean':
+        
+        mean = sess.run(tf.reduce_mean(inputs, axis=[0,1])) 
+        idx = range(len(mean))
+        mean_dict = dict(zip(idx, abs(mean)))
+        sorted_var = sorted(mean_dict.items(), key=operator.itemgetter(1))
+
+        reduce_dim = output_dim.shape
+        
+        for i in range(reduce_dim[2]):
+            partition_shape[:,:,sorted_var[i][0]] = np.ones([3,3])
+        
+        pres = sess.run(tf.dynamic_partition(inputs, partition_shape, 2))
+       
+        
+        pres = pres[1].reshape(output_dim.shape)
+        out = sess.run(tf.assign(output,pres))
+        
+        return out,sorted_var
+        
+
+def get_graph_var():
+
+	[n.name for n in tf.get_default_graph().as_graph_def().node]
+	print(n)
+
 
 
 with tf.Session() as sess:
+    
+    d, v = recursive_create_var("tesnor", 5, 0.1,var_list)
+    mean_true = 0
+    
+    idx = 0
+    
+    
+    for k in d:
+        with tf.variable_scope(k) as scope:
+            scope.reuse_variables()
+            for v in d[k]:
+               intra_lose[idx] = tf.add(intra_lose[idx],tf.sqrt(tf.reduce_sum(tf.square(tf.get_variable(v)))))
+            idx = idx + 1
+        loss = tf.add( loss, intra_lose[idx-1])
+            
+            
+    sess.run(tf.global_variables_initializer())
+    mean = sess.run(intra_lose[0])
+    mean2 = sess.run(intra_lose[1])
+    loss2 = sess.run(loss)
+    
+    
+    
+    with tf.variable_scope("tesnor_1") as scope:
+        scope.reuse_variables()
+        for v in d["tesnor_1"]:
+           mean_true = mean_true + sess.run(tf.sqrt(tf.reduce_sum(tf.square(tf.get_variable(v)))))
+    
+            
+       
+    
+    
+#    v2 = sess.run(v)
+    
 
-    sess.run(tf.global_variables_initializer())  
-    
-    resaver = tf.train.import_meta_graph(graph_model)
-    resaver.restore(sess, tf.train.latest_checkpoint(checkpoint_dir))  
-    
-    coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(coord=coord) 
-      
-    try:
-    
-        image_tensor = sess.run(sample_batch)
-       
-        #wo = sess.run(dsalex_model['conv1w'])
-                
-        w1 = sess.run(dsalex_model['conv1w'].assign(tf.get_collection('w1')[0]))
-        b1 = sess.run(dsalex_model['conv1b'].assign(tf.get_collection('b1')[0]))
-        sess.run(dsalex_model['conv2w'].assign(tf.get_collection('w2')[0]))
-        sess.run(dsalex_model['conv2b'].assign(tf.get_collection('b2')[0]))
-        sess.run(dsalex_model['conv3w'].assign(tf.get_collection('w3')[0]))
-        sess.run(dsalex_model['conv3b'].assign(tf.get_collection('b3')[0]))
-        sess.run(dsalex_model['conv4w'].assign(tf.get_collection('w4')[0]))
-        sess.run(dsalex_model['conv4b'].assign(tf.get_collection('b4')[0]))
-        sess.run(dsalex_model['conv5w'].assign(tf.get_collection('w5')[0]))
-        sess.run(dsalex_model['conv5b'].assign(tf.get_collection('b5')[0]))
-        sess.run(dsalex_model['fc6w'].assign(tf.get_collection('fc6W')[0]))
-        sess.run(dsalex_model['fc6b'].assign(tf.get_collection('fc6b')[0]))
-        sess.run(dsalex_model['fc7w'].assign(tf.get_collection('fc7W')[0]))
-        sess.run(dsalex_model['fc7b'].assign(tf.get_collection('fc7b')[0]))
-        w8w = sess.run(dsalex_model['fc8w'].assign(tf.get_collection('fc8W')[0]))
-        w8b = sess.run(dsalex_model['fc8b'].assign(tf.get_collection('fc8b')[0]))
-        
-        start1 = time.clock()
-        _,_,po = sess.run(net,feed_dict = {x:image_tensor})
-        end1 = time.clock()
-        print("Vanilla Runtime:{}".format(end1-start1))
-        
-        
-        start2 = time.clock()
-        p1 = sess.run(mininet, feed_dict = {x:image_tensor})
-        end2 = time.clock()
-        print("Mini Runtime:{}".format(end2-start2))
-        
-        
-       
-        
-        for input_im_ind in range(po.shape[0]):
-            inds = np.argsort(po)[input_im_ind,:]
-            inds2 = np.argsort(p1)[input_im_ind,:]
-            print("Origin:{}, Mini:{}".format(class_names[inds[-1]],class_names[inds2[-1]]))
-        
-        plt.figure(1)
-        plt.plot(po[0])
-        plt.figure(2)
-        plt.plot(p1[0])
-    
-    except tf.errors.OutOfRangeError:
-        print('Done training -- epoch limit reached')
-    finally:
-        # When done, ask the threads to stop.
-        coord.request_stop()
-        coord.join(threads)
-    
-#y = np.array([1,0,1,0,0])
+#    with tf.variable_scope("tesnor_0") as scope:
+#        scope.reuse_variables()
+#        v1 = tf.get_variable("conv1", [3,3,20])
+#        v2 = tf.get_variable("conv2", [3,3,10])
+#        test = sess.run(v1)
+#        test2 = sess.run(v1)
 #
-#data = np.array([[1,0,1,0,0],[10,0,1,10,0],[1,5,1,0,0],[1,0,1,0,3],[1,3,1,0,0]])
-#
-#x = tf.placeholder(tf.float32,(None,5))
-#w1 = tf.Variable(tf.random_normal([5,3]))
-#
-#w1_2 = tf.concat([w1,w1],1)
-#w2 = tf.Variable(tf.random_normal([6,1]))
-#
-#b1 = tf.Variable(tf.random_normal([6]))
-#b2 = tf.Variable(tf.random_normal([1]))
-#
-#fc1 = tf.nn.relu_layer(x, w1_2, b1)
-#fc2 = tf.nn.relu_layer(fc1, w2, b2)
-#
-#loss = tf.subtract(fc2, y)
-#train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
-#
-#with tf.Session() as sess:
-#    sess.run(tf.global_variables_initializer())
-#    
+#    with tf.variable_scope("tesnor_1") as scope:
+#        scope.reuse_variables()
+#        v3 = tf.get_variable("conv1", [3,3,18])
+#        
 #       
-#    for i in range(1000):
-#        
-#        sess.run(train_step, feed_dict={x:data})
-#        print("w_one:{}".format(sess.run(w1)))
-#        print("w_double:{}".format(sess.run(w1_2)))
-#        print("loss:{}".format(sess.run(fc2, feed_dict={x:data})))
-
-
 #
-#sample_batch = randombatch()
- 
-#with tf.Session() as sess:
-    
-#    new_saver = tf.train.import_meta_graph('../model/full_dim/fcann_v1.ckpt-8.meta')
-    #new_saver.restore(sess, tf.train.latest_checkpoint('../model'))
-#    new_saver.restore(sess, '../model/full_dim/fcann_v1.ckpt-8')
-    
-    
-    
-#    tw1 = tf.Variable(sess.run(tf.get_collection("w1")[0]))
-#    tb1 = tf.Variable(sess.run(tf.get_collection("b1")[0]))
-#    sess.run(tf.global_variables_initializer())
-    
-#    tw2 = sess.run(tw1)
-    
-#    exp = tf.concat([tw1,tw1],3)
-   
-    
-#   res = sess.run(exp)
-    
-    
-    
+#        out , sort = partition_by_rank(sess, v1, v3)
+#        test3 = sess.run(v3)
+#    print(np.array_equal(test, test2))
+#
+#    get_graph_var()
+#    var1 = sess.run(tensor_1)
+#    meanvar1 = sess.run(reduce_t1)
 #    
-#    net = net_factory.vanilla_alex_full(x)
-#    mininet = net_factory.mini_alex_full(x,tw1,tb1)
+#    idx = range(len(meanvar1))
+#    mean_dict = dict(zip(idx, abs(meanvar1)))
+#    sorted_x = sorted(mean_dict.items(), key=operator.itemgetter(1))
 #    
-#    sess.run(tf.global_variables_initializer())
-#    coord = tf.train.Coordinator()
-#    threads = tf.train.start_queue_runners(coord=coord) 
 #    
-#    try:
+    
+#    for i in range(len(sorted_x) - Nfilter):
 #        
-#        image_tensor = sess.run(sample_batch)
-#        w1 = sess.run(tw1)
-#        output = sess.run(net, feed_dict = {x:image_tensor})
-#        output2 = sess.run(mininet, feed_dict = {x:image_tensor})
-#        
-#        plt.figure(1)
-#        plt.subplot(211)
-#        plt.plot(output[0])
-#        plt.plot(output2[0])
-#        
-#        for input_im_ind in range(output.shape[0]):
+#        partition_shape[:,:,sorted_x[i][0]] = np.ones([3,3])
+#    
+#    pres = sess.run(tf.dynamic_partition(tensor_1, partition_shape, 2))
+#    res = pres[1].reshape([3,3,10])
+#    
+#    var2 = sess.run(tf.assign(tensor_2,res))
+#    
+#    
+#    test = var1[:,:,3]
+#    sum_t = 0
+#    
+#    for i in range(3):
+#        for j in range(3):
+#            sum_t = sum_t + test[i][j]
 #            
-#            inds = np.argsort(output)[input_im_ind,:]
-#            inds2 = np.argsort(output2)[input_im_ind,:]
-#            
-#                
-##            for i in range(5):
-##                print("Image", input_im_ind)
-##                print("Origin:")
-##                print(class_names[inds[-1-i]], output[input_im_ind, inds[-1-i]])
-##                print("Small:")
-##                print(class_names[inds[-1-i]], output2[input_im_ind, inds[-1-i]])
-#                
-#            for j in range(0,len(inds)-5):
-#                output[input_im_ind, inds[j]] = 0
-#           
-#        plt.subplot(212)
-#        plt.plot(output[0])
-#        plt.plot(output2[0])
-#        cost = tf.reduce_mean(-tf.reduce_sum(tf.multiply(output,tf.log(output2)),1))
-#        loss = sess.run(cost)
-#        
-#        
-#        print("Avg Loss:{}".format(loss))
-#    except tf.errors.OutOfRangeError:
-#        print('Done training -- epoch limit reached')
-#    finally:
-#        # When done, ask the threads to stop.
-#        coord.request_stop()
-#        coord.join(threads)
-#    sess.close()
-    
-    
-    
-###!/usr/bin/env python3
-### -*- coding: utf-8 -*-
-##"""
-##Created on Thu Mar 16 12:40:11 2017
-##
-##@author: ubuntu
-##"""
-##
-##import purgeinvalid_img as pi
-##import numpy as np
-##
-###pi.purgeinvalid_img("./ilsvrc11")
-###
-###pi.test();
-##
-##a = np.array([[[3, 3, 3],[4, 4, 4]],[[1, 3, 3],[2, 4, 4]]])
-##b = np.array([[[8, 8, 3],[4, 4, 4]]])
-###d = np.array([[6, 6, 6]])
-##c = np.append(a, b, axis=0)
-###c = np.append(c, d, axis=0)
-#
-#
-#import tensorflow as tf
-#
-#
-#rconv1_w = tf.Variable(tf.random_normal([11,11,3,96]), name="w1")
-#rconv1_b = tf.Variable(tf.random_normal([96]), name="b1")
-#
-#abs2 = tf.abs(rconv1_w)
-#
-#with tf.Session() as sess:
-#    saver = tf.train.import_meta_graph('../model/fcann_v1.ckpt-2.meta')
-#    init = tf.global_variables_initializer()
-#    sess.run(init)
-#    
-#    
-#    bares = sess.run(abs2)
-#    
-#    r = saver.restore(sess, '../model/fcann_v1.ckpt-2')   
-##    all_vars = tf.get_collection('w1')
-##    
-##    for v in all_vars:
-##        v_ = sess.run(v)
-##        print(v_)
-#    res = sess.run(rconv1_w.assign(tf.get_collection('w1')[0]))
-#    ares = sess.run(abs2)
-#   
-#
-#
-##v1 = tf.Variable(tf.zeros([2, 2], dtype=tf.float32, name='v1'))
-##saver = tf.train.Saver()
-##
-##with tf.Session() as sess:
-##    sess.run(tf.global_variables_initializer())
-##    print(sess.run(v1))
-##    save_path = saver.save(sess, './model.ckpt')
-##    print("model saved in file:", save_path)
-##
-##    # Create an op to increment v1, run it, and print the result.   
-##    increment_op = v1.assign_add(tf.ones([2, 2]))
-##    sess.run(increment_op)
-##    print(sess.run(v1))
-##
-##    # Restore from the checkpoint saved above.
-##    saver.restore(sess, './model.ckpt')
-##    print(sess.run(v1))
+#    mean_t = sum_t/9
