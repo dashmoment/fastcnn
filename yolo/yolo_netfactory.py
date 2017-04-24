@@ -430,3 +430,87 @@ def yolo_dinception(scope,data, ds_yolo, keep_prob, train):
 
 
     return fc12    
+
+
+
+def glosso_train(varscope, scopename,data,var_dict , keep_prob, train = True):
+    
+     with tf.variable_scope(varscope) as scope:
+         scope.reuse_variables()
+         varlist = var_dict[varscope]
+         
+         with tf.name_scope(scopename):
+             
+            ds_yolo = {}
+             
+            for i in range(len(varlist)):
+                 ds_yolo[varlist[i]] = tf.get_variable(varlist[i])
+            
+            with tf.name_scope("conv1"):
+                conv1 = conv(data, ds_yolo['conv1w'], ds_yolo['conv1b'],1,3)
+            
+            with tf.name_scope("pool1"):
+                pool1 = pooling_layer(conv1,2,2)
+                
+            with tf.name_scope("conv2"):
+                conv2 = conv(pool1, ds_yolo['conv2w'], ds_yolo['conv2b'],1,3)
+                
+            with tf.name_scope("pool2"):
+                pool2 = pooling_layer(conv2,2,2)
+                
+            with tf.name_scope("conv3"):
+                conv3 = conv(pool2, ds_yolo['conv3w'], ds_yolo['conv3b'],1,3)
+                
+            with tf.name_scope("pool3"):
+                pool3 = pooling_layer(conv3,2,2)
+                
+            with tf.name_scope("conv4"):
+                conv4 = conv(pool3, ds_yolo['conv4w'], ds_yolo['conv4b'],1,3)
+                
+            with tf.name_scope("pool4"):
+                pool4 = pooling_layer(conv4,2,2)
+                
+            with tf.name_scope("conv5"):
+                conv5 = conv(pool4, ds_yolo['conv5w'], ds_yolo['conv5b'],1,3)
+            
+            with tf.name_scope("pool5"):
+                pool5 = pooling_layer(conv5,2,2)
+                
+            with tf.name_scope("conv6"):
+                conv6 = conv(pool5, ds_yolo['conv6w'], ds_yolo['conv6b'],1,3)
+                
+            with tf.name_scope("pool6"):
+                pool6 = pooling_layer(conv6,2,2)
+            
+                
+            with tf.name_scope("conv7"):
+                conv7 = conv(pool6, ds_yolo['conv7w'], ds_yolo['conv7b'],1,3)
+            
+            with tf.name_scope("conv8"):
+                conv8 = conv(conv7, ds_yolo['conv8w'], ds_yolo['conv8b'],1,3)
+            
+            with tf.name_scope("conv9"):
+                conv9 = conv(conv8, ds_yolo['conv9w'], ds_yolo['conv9b'],1,3)
+                
+            with tf.name_scope("fc10"):
+                fc10 = fc_layer(conv9, ds_yolo['fc10w'], ds_yolo['fc10b'],flat=True,linear=False)
+                
+            
+            with tf.name_scope("fc11"):
+                fc11 = fc_layer(fc10, ds_yolo['fc11w'], ds_yolo['fc11b'],flat=False,linear=False)
+            
+            
+            if train == True:
+    
+                print("Train")
+        
+                with tf.name_scope("dropout"):
+                    dropout2 = tf.nn.dropout(fc11, keep_prob)
+                
+                with tf.name_scope("fc12"):
+                    fc12 = fc_layer(dropout2, ds_yolo['fc12w'], ds_yolo['fc12b'],flat=False,linear=True)
+            else:
+                print("Test")
+                with tf.name_scope("fc12"):
+                    fc12 = fc_layer(fc11, ds_yolo['fc12w'], ds_yolo['fc12b'],flat=False,linear=True)
+            return fc12

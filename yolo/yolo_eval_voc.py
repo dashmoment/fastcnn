@@ -12,72 +12,23 @@ import model_utility as mut
 import time
 
 
+
 img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012/JPEGImages'
 labelfiles = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012/ImageSets/Main'
-graph_model = '../../model/yolo_ds/fcann_v1.ckpt-4000.meta'
-checkpoint_dir = '../../model/yolo_ds'
+graph_model = '../../model/yolo_dk/fcann_v1.ckpt-4000.meta'
+checkpoint_dir = '../../model/yolo_dk'
 classes = voc.list_image_sets()
 val_list = voc.imgs_from_category_as_list('', 'val', labelfiles)
 
 yolo_old = YOLO_tiny_tf.YOLO_TF()
 
 #Vanilla YOLO_tiny Weight
-tmodel_var_list = [
-            ['conv1w',[3,3,3,16]],
-            ['conv1b',[16]],
-            ['conv2w',[3,3,16,32]],
-            ['conv2b',[32]],
-            ['conv3w',[3,3,32,64]],
-            ['conv3b',[64]],
-            ['conv4w',[3,3,64,128]],
-            ['conv4b',[128]],
-            ['conv5w',[3,3,128,256]],
-            ['conv5b',[256]],
-            ['conv6w',[3,3,256,512]],
-            ['conv6b',[512]],
-            ['conv7w',[3,3,512,1024]],
-            ['conv7b',[1024]],
-            ['conv8w',[3,3,1024,1024]],
-            ['conv8b',[1024]],
-            ['conv9w',[3,3,1024,1024]],
-            ['conv9b',[1024]],
-            ['fc10w',[50176,256]],
-            ['fc10b',[256]],
-            ['fc11w',[256,4096]],
-            ['fc11b',[4096]],
-            ['fc12w',[4096,1470]],
-            ['fc12b',[1470]]]
-
-#tmodel_var_list = [
-#            ['conv1w',[3,3,3,16]],
-#            ['conv1b',[16]],
-#            ['conv2w',[3,3,16,16]],
-#            ['conv2b',[16]],
-#            ['conv3w',[3,3,16,32]],
-#            ['conv3b',[32]],
-#            ['conv4w',[3,3,32,64]],
-#            ['conv4b',[64]],
-#            ['conv5w',[3,3,64,128]],
-#            ['conv5b',[128]],
-#            ['conv6w',[3,3,128,256]],
-#            ['conv6b',[256]],
-#            ['conv7w',[3,3,256,512]],
-#            ['conv7b',[512]],
-#            ['conv8w',[3,3,512,512]],
-#            ['conv8b',[512]],
-#            ['conv9w',[3,3,512,512]],
-#            ['conv9b',[512]],
-#            ['fc10w',[25088,128]],
-#            ['fc10b',[128]],
-#            ['fc11w',[128,2048]],
-#            ['fc11b',[2048]],
-#            ['fc12w',[2048,1470]],
-#            ['fc12b',[1470]]]
+modelTicket_G = {'root':'yolo_tiny', 'branch':'double_cut89'}
 
 x = tf.placeholder(tf.float32,(None,448,448,3))
 keep_prob = tf.placeholder(tf.float32)
-ds_yolo = mut.create_var_tnorm('train',tmodel_var_list)
-yolo_ds = nf.yolo_ds("yolo_test",x,ds_yolo,keep_prob)
+gen_var = mut.create_var_xavier('train',mut.model_zoo(modelTicket_G))
+yolo_ds = nf.yolo_dinception("yolo_train", x ,gen_var,keep_prob, False)
 
 #Test LSGAN trained model
 #ds_yolo = mut.create_var_xavier('train',tmodel_var_list)
@@ -119,20 +70,20 @@ with tf.Session() as sess2:
         
         
        
-        s = time.clock()
-        prob_label_old = yolo_old.sess.run(yolo_old.fc_19, feed_dict={yolo_old.x:inputs})
-        e = time.clock()
-        elapse_old = elapse_old + e - s
-        
-        results_old = ut.interpret_output(prob_label_old[0],w,h)
-
-        for i in range(len(results_old)):
-            
-            tbb = ut.cov_yoloBB2VOC(results_old[i])
-            res_old = ut.eval_by_obj(val_name, tbb, 0.5)
-            
-            if(res_old == 1): tp_old = tp_old +1
-            if(res_old == -1): fp_old = fp_old +1
+#        s = time.clock()
+#        prob_label_old = yolo_old.sess.run(yolo_old.fc_19, feed_dict={yolo_old.x:inputs})
+#        e = time.clock()
+#        elapse_old = elapse_old + e - s
+#        
+#        results_old = ut.interpret_output(prob_label_old[0],w,h)
+#
+#        for i in range(len(results_old)):
+#            
+#            tbb = ut.cov_yoloBB2VOC(results_old[i])
+#            res_old = ut.eval_by_obj(val_name, tbb, 0.5)
+#            
+#            if(res_old == 1): tp_old = tp_old +1
+#            if(res_old == -1): fp_old = fp_old +1
         
 
         
@@ -155,9 +106,10 @@ with tf.Session() as sess2:
 
         
        
-    print("Old Avg Elapse:{}".format(elapse_old/idx)) 
-    print("Avg Elapse:{}".format(elapse/idx)) 
-    print("Old Accuracy:{}".format(tp_old/num))
+#    print("Old Avg Elapse:{}".format(elapse_old/idx)) 
+#    print("Old Accuracy:{}".format(tp_old/num))
+    
+    print("New Avg Elapse:{}".format(elapse/idx)) 
     print("New Accuracy:{}".format(tp/num)) 
         
 #        {} {} {} {} {}\n".format(fname, results[i][5],xmin,ymin,xmax,ymax))

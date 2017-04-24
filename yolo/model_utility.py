@@ -94,6 +94,13 @@ def loss_zoo(ticket, output, label):
 
     assert 'loss' in ticket, 'Sorry, wrong ticket'
 
+    if ticket['loss'] == 'gL2norm':
+        assert 'gloss' in output, 'label and output should contain prob and gloss'
+        res_value = tf.subtract(output['prob'], label)
+        mloss = tf.sqrt(tf.reduce_sum(tf.square(res_value))) + 0.001*output['gloss']
+        gloss = output['gloss']
+        loss = [mloss, gloss]
+
     if ticket['loss'] == 'L2norm':
         res_value = tf.subtract(output, label)
         loss = tf.sqrt(tf.reduce_sum(tf.square(res_value)))
@@ -144,8 +151,7 @@ def train_op(sess, train_type, solver, loss ,feeddict , savemodel, model_saver, 
             train_loss = sess.run(loss, feed_dict=feeddict)         
             print("Train Loss: {}".format(train_loss))
            
-            if 'train' in summary:
-
+            if 'train' in summary:#
                 sumtrain = sess.run(summary['train'],feed_dict=feeddict) 
                 summary['writer'].add_summary(sumtrain, epoch)
     
@@ -208,3 +214,14 @@ def quickSummary(key_data):
                 idx = idx + 1
             else:
                 tf.summary.scalar(k,key_data[k],collections=[key_data['collection'][0]])
+
+
+def quickSummary2(key_data):
+    print(key_data)
+    tf.summary.scalar('Train_RMSE',key_data['Train_RMSE'],collections='train')
+    tf.summary.scalar('Group_loss',key_data['Group_loss'],collections='train')
+    tf.summary.scalar('Test_RMSE',key_data['Test_RMSE'],collections='test')
+    tf.summary.scalar('Test_Group_loss',key_data['Test_Group_loss'],collections='test')
+
+   
+
