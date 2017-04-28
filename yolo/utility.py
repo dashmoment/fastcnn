@@ -62,6 +62,7 @@ def calc_objec_num(imgname):
     nBB = 0
 
     ann = voc.load_annotation(imgname)
+    
     for item in ann.find_all('object'):
         nBB = nBB + 1
 

@@ -50,24 +50,25 @@ def get_graph_var():
 
 batch_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
 test_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_val"
-filename = "../../model/glosso/fcann_v1.ckpt"
-logfile = '../../log/glosso'
-graph_model = '../../model/glosso/fcann_v1.ckpt-0.meta'
-checkpoint_dir = '../../model/glosso'
+filename = "../../model/test/fcann_v1.ckpt"
+logfile = '../../log/test'
+graph_model = '../../model/test/fcann_v1.ckpt-0.meta'
+checkpoint_dir = '../../model/test'
 
 train_type = "RMS"
-continue_training = 1
-loop_num = 4500
+continue_training = 0
+loop_num = 0
 batch_size = 64
 save_epoch = 200
 test_epoch = 500
 
 
 yolo = YOLO_tiny_tf.YOLO_TF()
-keep_prob = tf.placeholder(tf.float32)
-x = tf.placeholder(tf.float32,(None,448,448,3))
-label = tf.placeholder(tf.float32,(None,1470))
-tlabel = tf.placeholder(tf.float32,(None,1470))
+keep_prob = tf.placeholder(tf.float32, name='dropout_prob')
+x = tf.placeholder(tf.float32,(None,448,448,3), name='input_batch')
+label = tf.placeholder(tf.float32,(None,1470), name='labels')
+tlabel = tf.placeholder(tf.float32,(None,1470), name='test_labels')
+learning_rate = tf.placeholder(tf.float32, shape=[], name='learning_rate')
     
 
 model_ticket = {'root':'yolo_tiny', 'branch':'vanilla'}
@@ -79,16 +80,17 @@ with tf.name_scope('Weight_sum'):
     with tf.variable_scope('recursive_0') as scope:
         scope.reuse_variables()
         g_losso = tf.add_n([tf.reduce_sum(tf.norm(tf.reshape(tf.get_variable(x),[-1,tf.get_variable(x).get_shape().as_list()[-1]]),axis=0)) for x in var_list])
+        g_losso = g_losso/batch_size
         [tf.summary.histogram(x, tf.get_variable(x), collections=['test']) for x in var_list]
 
-lossTicket = {'loss':'gL2norm'}
+lossTicket = {'loss':'RMSE'}
 glosso_train = nf.glosso_train("recursive_0", 'train', x, var_dict, keep_prob, True)
 loss_pair = {'prob':glosso_train, 'gloss':g_losso}
 loss = mu.loss_zoo(lossTicket, loss_pair, label)
-L2_Solver = tf.train.AdamOptimizer(1e-4).minimize(loss[0])
+#L2_Solver = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(loss[0])
 
 
-tlossTicket = {'loss':'gL2norm'}
+tlossTicket = {'loss':'RMSE'}
 glosso_test = nf.glosso_train("recursive_0", 'test', x, var_dict, keep_prob, False)
 tloss_pair = {'prob':glosso_test, 'gloss':g_losso}
 tloss = mu.loss_zoo(tlossTicket, tloss_pair, tlabel)  
@@ -119,23 +121,27 @@ with tf.Session() as sess:
     else:
         sess.run(tf.global_variables_initializer())  
         
+        data_labels = mu.gnerate_dl_pairs(yolo, batch_file, batch_size, (448,448,3))
+        feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:1e-6}
+        l = sess.run(loss, feed_dict = feeddict)
     
-    for i in range(loop_num, 1000000):
-       
-       print("Epoch:{}".format(i))
-       savemodel = False
-        
-       data_labels = mu.gnerate_dl_pairs(yolo, batch_file, batch_size, (448,448,3))
-       feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5}
- 
-       if i%save_epoch == 0: savemodel = True
-       mu.train_op(sess, train_type, L2_Solver, loss[0], feeddict, savemodel, saver, filename, summary, i)
-      
-       if i%test_epoch == 0:#
-
-           tdata_labels = mu.gnerate_dl_pairs(yolo, test_file, batch_size, (448,448,3))
-           tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:0.5}
-           mu.test_op(sess, train_type, tloss[0], tfeeddict, summary, i)
+#    for i in range(loop_num, 1000000):
+#       
+#       print("Epoch:{}".format(i))
+#       savemodel = False
+#
+#        
+#       data_labels = mu.gnerate_dl_pairs(yolo, batch_file, batch_size, (448,448,3))
+#       feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:1e-6}
+# 
+#       if i%save_epoch == 0: savemodel = True
+#       mu.train_op(sess, train_type, L2_Solver, loss[0], feeddict, savemodel, saver, filename, summary, i)
+#      
+#       if i%test_epoch == 0:#
+#
+#           tdata_labels = mu.gnerate_dl_pairs(yolo, test_file, batch_size, (448,448,3))
+#           tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:0.5}
+#           mu.test_op(sess, train_type, tloss[0], tfeeddict, summary, i)
 
     summary_writer.close()
     sess.close()  

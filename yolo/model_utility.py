@@ -94,17 +94,40 @@ def loss_zoo(ticket, output, label):
 
     assert 'loss' in ticket, 'Sorry, wrong ticket'
 
+    #============Group Losso==============
     if ticket['loss'] == 'gL2norm':
         assert 'gloss' in output, 'label and output should contain prob and gloss'
         res_value = tf.subtract(output['prob'], label)
-        mloss = tf.sqrt(tf.reduce_sum(tf.square(res_value))) + 0.001*output['gloss']
+        mloss = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(res_value), axis=1))) + 0.01*output['gloss']
         gloss = output['gloss']
         loss = [mloss, gloss]
 
-    if ticket['loss'] == 'L2norm':
-        res_value = tf.subtract(output, label)
-        loss = tf.sqrt(tf.reduce_sum(tf.square(res_value)))
+    if ticket['loss'] == 'gRMSE':
+        assert 'gloss' in output, 'label and output should contain prob and gloss'
+        rmse = tf.reduce_mean(tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(output['prob'], label)), axis=1)))
+        mloss = rmse + 0.01*output['gloss']
+        gloss = output['gloss']
+        loss = [mloss, gloss]
 
+    if ticket['loss'] == 'gkl_divergence':
+        assert 'gloss' in output, 'label and output should contain prob and gloss'
+
+        prob_logit = tf.nn.softmax(output['prob'])
+        prob_label = tf.nn.softmax(label)
+        mloss =  tf.reduce_mean(tf.reduce_sum(prob_logit*tf.log(prob_logit/prob_label),axis=1))
+        gloss = output['gloss']
+        loss = [mloss, gloss]
+
+    #============General Loss==============
+    if ticket['loss'] == 'L2norm':
+        loss = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(res_value), axis=1)))
+        
+    if ticket['loss'] == 'RMSE':
+        rmse = tf.reduce_mean(tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(output['prob'], label)), axis=1)))  
+        loss = [rmse,[]]
+    
+
+    #=============GAN===============
     if ticket['loss'] == 'lsGAN':
 
         assert 'logit' in label, 'label and output should contain prob and logit'

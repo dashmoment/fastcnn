@@ -1,9 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from scipy.misc import imread
-from scipy.misc import imresize
-from scipy import misc
-#import time
+
 
 
 alpha = 0.1
@@ -434,13 +431,13 @@ def yolo_dinception(scope,data, ds_yolo, keep_prob, train):
 
 
 def glosso_train(varscope, scopename,data,var_dict , keep_prob, train = True):
-    
-     with tf.variable_scope(varscope) as scope:
-         scope.reuse_variables()
-         varlist = var_dict[varscope]
+     
+     with tf.name_scope(scopename):
+         with tf.variable_scope(varscope) as scope:
+            
+            scope.reuse_variables()
+            varlist = var_dict[varscope]
          
-         with tf.name_scope(scopename):
-             
             ds_yolo = {}
              
             for i in range(len(varlist)):

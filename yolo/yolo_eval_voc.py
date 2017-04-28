@@ -13,12 +13,12 @@ import time
 
 
 
-img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012/JPEGImages'
-labelfiles = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012/ImageSets/Main'
+img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/JPEGImages'
+labelfiles = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/ImageSets/Main'
 graph_model = '../../model/yolo_dk/fcann_v1.ckpt-4000.meta'
 checkpoint_dir = '../../model/yolo_dk'
 classes = voc.list_image_sets()
-val_list = voc.imgs_from_category_as_list('', 'val', labelfiles)
+val_list = voc.imgs_from_category_as_list('', 'test', labelfiles)
 
 yolo_old = YOLO_tiny_tf.YOLO_TF()
 
@@ -70,20 +70,20 @@ with tf.Session() as sess2:
         
         
        
-#        s = time.clock()
-#        prob_label_old = yolo_old.sess.run(yolo_old.fc_19, feed_dict={yolo_old.x:inputs})
-#        e = time.clock()
-#        elapse_old = elapse_old + e - s
-#        
-#        results_old = ut.interpret_output(prob_label_old[0],w,h)
-#
-#        for i in range(len(results_old)):
-#            
-#            tbb = ut.cov_yoloBB2VOC(results_old[i])
-#            res_old = ut.eval_by_obj(val_name, tbb, 0.5)
-#            
-#            if(res_old == 1): tp_old = tp_old +1
-#            if(res_old == -1): fp_old = fp_old +1
+        s = time.clock()
+        prob_label_old = yolo_old.sess.run(yolo_old.fc_19, feed_dict={yolo_old.x:inputs})
+        e = time.clock()
+        elapse_old = elapse_old + e - s
+        
+        results_old = ut.interpret_output(prob_label_old[0],w,h)
+
+        for i in range(len(results_old)):
+            
+            tbb = ut.cov_yoloBB2VOC(results_old[i])
+            res_old = ut.eval_by_obj(val_name, tbb, 0.5)
+            
+            if(res_old == 1): tp_old = tp_old +1
+            if(res_old == -1): fp_old = fp_old +1
         
 
         
@@ -91,7 +91,7 @@ with tf.Session() as sess2:
         prob_label = sess2.run(yolo_ds,feed_dict={x:inputs, keep_prob:0.5})
         e = time.clock()
         elapse = elapse + e-s
-        #print("Elapse:{}".format(res))
+
         
         
         results = ut.interpret_output(prob_label[0],w,h)
@@ -106,8 +106,8 @@ with tf.Session() as sess2:
 
         
        
-#    print("Old Avg Elapse:{}".format(elapse_old/idx)) 
-#    print("Old Accuracy:{}".format(tp_old/num))
+    print("Old Avg Elapse:{}".format(elapse_old/idx)) 
+    print("Old Accuracy:{}".format(tp_old/num))
     
     print("New Avg Elapse:{}".format(elapse/idx)) 
     print("New Accuracy:{}".format(tp/num)) 

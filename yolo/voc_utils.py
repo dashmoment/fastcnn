@@ -8,7 +8,7 @@ import skimage
 from skimage import io
 
 
-root_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012'
+root_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test'
 img_dir = os.path.join(root_dir, 'JPEGImages/')
 ann_dir = os.path.join(root_dir, 'Annotations')
 set_dir = os.path.join(root_dir, 'ImageSets', 'Main')
@@ -48,6 +48,7 @@ def imgs_from_category(cat_name, dataset, directory):
         filename,
         delim_whitespace=True,
         header=None,
+        dtype={0: str},
         names=['filename', 'true'])
     
     return df
@@ -66,6 +67,7 @@ def imgs_from_category_as_list(cat_name, dataset, directory):
         list of srings: all filenames from that category
     """
     df = imgs_from_category(cat_name, dataset, directory)
+    print(df)
 
     if cat_name != '':
         df = df[df['true'] == 1]
