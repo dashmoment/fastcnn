@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import random_batch as rb
+import math
 
 def GAN_vanilla(d_real_logit,d_fake_logit,d_real_prob,d_fake_prob):
 
@@ -120,13 +121,20 @@ def loss_zoo(ticket, output, label):
 
     #============General Loss==============
     if ticket['loss'] == 'L2norm':
+        res_value = tf.subtract(output['prob'], label)
         loss = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(res_value), axis=1)))
         
     if ticket['loss'] == 'RMSE':
-        rmse = tf.reduce_mean(tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(output['prob'], label)), axis=1)))  
-        loss = [rmse,[]]
-    
+        loss = tf.reduce_mean(tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(output['prob'], label)), axis=1)))  
+       
+    #============Yolo==============
 
+    if ticket['loss'] == 'yoloL2norm':
+        res_value = tf.add(tf.square(tf.subtract(output['prob'],label)),tf.constant(1e-8))
+        sqrt_res = tf.sqrt(res_value) 
+        #sqrt_res = tf.Print(sqrt_res,[sqrt_res], message="sqrt_res:")
+        loss = tf.reduce_mean(tf.reduce_sum(sqrt_res, axis=1))
+             
     #=============GAN===============
     if ticket['loss'] == 'lsGAN':
 
@@ -171,7 +179,8 @@ def train_op(sess, train_type, solver, loss ,feeddict , savemodel, model_saver, 
         if savemodel == True:
              
             model_saver.save(sess, model_file, global_step=epoch)
-            train_loss = sess.run(loss, feed_dict=feeddict)         
+            train_loss = sess.run(loss, feed_dict=feeddict)   
+
             print("Train Loss: {}".format(train_loss))
            
             if 'train' in summary:#
