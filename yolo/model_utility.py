@@ -230,6 +230,15 @@ def gnerate_dl_pairs(label_gen, batch_file, batch_size, src_shape = (448,448,3))
     dl_pairs = {"data": image_src, "label": prob_label}
 
     return dl_pairs
+
+
+def gnerate_dl_pairs_voc(label_gen, index, batchpath, shufflelist, batchsize, imagesize=(448,448,3)):
+
+    shufflelist, image_src =  rb.voc_image_random_batch(index, batchpath, shufflelist, batchsize, imagesize)
+    prob_label = label_gen.sess.run(label_gen.fc_19, feed_dict={label_gen.x:image_src})
+    dl_pairs = {"data": image_src, "label": prob_label}
+
+    return shufflelist, dl_pairs
     
 def quickSummary(key_data):
   

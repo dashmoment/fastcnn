@@ -4,6 +4,7 @@ import os
 from scipy import misc
 import cv2
 
+
 def image_random_batch(dirname, batchsize, imagesize, array_type):
     
     cwd = os.getcwd()
@@ -53,6 +54,29 @@ def yolo_image_random_batch(dirname, batchsize, imagesize, array_type):
     os.chdir(cwd)
     
     return batch_images
+
+def voc_image_random_batch(index, batchpath, shufflelist, batchsize, imagesize):
+    
+    if shufflelist == []:
+        shufflelist = os.listdir(batchpath)
+        random.shuffle(shufflelist)
+        print('shuffle')
+    
+    batch = shufflelist[index:index+batchsize]
+
+    batch_images = []
+    for f in batch:
+        fname = os.path.join(batchpath, f)
+        img = cv2.imread(fname)
+        img_resized = cv2.resize(img, (imagesize[0],imagesize[1]))
+        img_RGB = cv2.cvtColor(img_resized,cv2.COLOR_BGR2RGB)
+        img_resized_np = np.asarray( img_RGB )
+        inputs = (img_resized_np/255.0)*2.0-1.0
+        batch_images.append(np.array(inputs))
+
+    batch_images = np.stack(batch_images)
+    
+    return shufflelist, batch_images
 
 
 def yolo_image_random_batch_corp(dirname, batchsize, imagesize, array_type):
