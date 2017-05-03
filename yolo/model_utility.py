@@ -127,13 +127,22 @@ def loss_zoo(ticket, output, label):
     if ticket['loss'] == 'RMSE':
         loss = tf.reduce_mean(tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(output['prob'], label)), axis=1)))  
        
-    #============Yolo==============
 
-    if ticket['loss'] == 'yoloL2norm':
-        res_value = tf.add(tf.square(tf.subtract(output['prob'],label)),tf.constant(1e-8))
-        sqrt_res = tf.sqrt(res_value) 
-        #sqrt_res = tf.Print(sqrt_res,[sqrt_res], message="sqrt_res:")
-        loss = tf.reduce_mean(tf.reduce_sum(sqrt_res, axis=1))
+    if ticket['loss'] == 'L1norm':
+        res_value = tf.abs(tf.subtract(output['prob'],label))
+        loss = tf.reduce_mean(tf.reduce_sum(res_value, axis=1))
+    
+    if ticket['loss'] == 'smoothL1':
+        
+        res_value = tf.abs(tf.subtract(output['prob'],label))
+        smoothL1 = tf.cast(tf.less(res_value,1), tf.float32)
+        invsmoothL1 = tf.cast(tf.less(smoothL1,0.5),tf.float32)
+
+        r1 = tf.multiply(tf.square(res_value), smoothL1)*0.5
+        r2 = tf.multiply((res_value - 0.5), invsmoothL1)       
+        res = tf.add(r1,r2)
+        
+        loss = tf.reduce_mean(tf.reduce_sum(res, axis=1))
              
     #=============GAN===============
     if ticket['loss'] == 'lsGAN':

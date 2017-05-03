@@ -8,22 +8,39 @@ import matplotlib.pyplot as plt
 import os
 import cv2
 import YOLO_tiny_tf
-import model_utility as mu
+
 
 import random
 
-batchpath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train'
-batchsize = 64
-shufflelist = []
 
-yolo = YOLO_tiny_tf.YOLO_TF()
+target = tf.abs(tf.constant([[0.5,-2,2,2,-0.5,2],[1,0.1,-0.5,2,0.6,2]], tf.float32))
+smoothl1 = tf.cast(tf.less(target,1),tf.float32)
 
+res1 = tf.multiply(tf.square(target),smoothl1)*0.5
+inversmoothl1 = tf.cast(tf.less(smoothl1,0.5),tf.float32)
+res2 = tf.multiply(target-0.5,inversmoothl1) 
 
+res = tf.reduce_mean(tf.reduce_sum(tf.add(res1,res2 ), axis=1))
 
-for i in range(0,len(os.listdir(batchpath))//batchsize,batchsize):
-    
-    index = i*batchsize
-    shufflelist, batch = mu.gnerate_dl_pairs_voc(yolo, index, batchpath, shufflelist, batchsize, (448,448,3))
+sess = tf.Session()
+sess.run(tf.global_variables_initializer()) 
+smoth = sess.run(smoothl1)
+s = sess.run(inversmoothl1)
+r1 = sess.run(res1)
+r2 = sess.run(res2)
+r = sess.run(res)
+#batchpath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train'
+#batchsize = 64
+#shufflelist = []
+#
+#yolo = YOLO_tiny_tf.YOLO_TF()
+#
+#
+#
+#for i in range(0,len(os.listdir(batchpath))//batchsize,batchsize):
+#    
+#    index = i*batchsize
+#    shufflelist, batch = mu.gnerate_dl_pairs_voc(yolo, index, batchpath, shufflelist, batchsize, (448,448,3))
     #print(batch)
 
 #"../../dataset/VOC2012/JPEGImages/*.jpg"
