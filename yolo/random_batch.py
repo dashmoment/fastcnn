@@ -5,6 +5,7 @@ from scipy import misc
 import cv2
 
 
+
 def image_random_batch(dirname, batchsize, imagesize, array_type):
     
     cwd = os.getcwd()
@@ -59,8 +60,8 @@ def voc_image_random_batch(index, batchpath, shufflelist, batchsize, imagesize):
     
     if shufflelist == []:
         shufflelist = os.listdir(batchpath)
-        random.shuffle(shufflelist)
-        print('shuffle')
+        shuffle(shufflelist)
+        print('Shuffle List')
     
     batch = shufflelist[index:index+batchsize]
 

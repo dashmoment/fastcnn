@@ -12,7 +12,7 @@ import model_utility as mu
 
 import random
 
-batchpath = '/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012/JPEGImages'
+batchpath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train'
 batchsize = 64
 shufflelist = []
 

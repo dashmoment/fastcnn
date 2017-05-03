@@ -1,6 +1,6 @@
 import  tensorflow as tf
-import numpy as np
 import sys
+import os
 sys.path.append('/home/ubuntu/workspace/fastcnn/src/yolo')
 
 import model_utility as mu
@@ -50,17 +50,18 @@ def get_graph_var():
 
 batch_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
 test_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_val"
-filename = "../../model/yolol2sum/fcann_v1.ckpt"
-logfile = '../../log/yolol2sum'
-checkpoint_dir = '../../model/yolol2sum'
+filename = "../../model/test/fcann_v1.ckpt"
+logfile = '../../log/test'
+checkpoint_dir = '../../model/test'
 
 train_type = "RMS"
 continue_training = 0
+epoch_num = 0
+Nepoch = 200
 loop_num = 0
 batch_size = 64
 save_epoch = 20
 test_epoch = 50
-
 
 yolo = YOLO_tiny_tf.YOLO_TF()
 keep_prob = tf.placeholder(tf.float32, name='dropout_prob')
@@ -123,24 +124,36 @@ with tf.Session() as sess:
 #            ds_yolo[var_list[i]] = tf.get_variable(var_list[i])
 #            
 #    c = sess.run(ds_yolo['conv2w'])
-    
-    for i in range(loop_num, 1000000):
-       
-       print("Epoch:{}".format(i))
-       savemodel = False#
 
-        
-       data_labels = mu.gnerate_dl_pairs(yolo, batch_file, batch_size, (448,448,3))
-       feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:1e-6}
- 
-       if i%save_epoch == 0: savemodel = True
-       mu.train_op(sess, train_type, L2_Solver, loss, feeddict, savemodel, saver, filename, summary, i)
+    for epoch in range(epoch_num,Nepoch):
+
+      print("Start Epoch:{}".format(epoch))
+
+      shufflelist = []
       
-       if i%test_epoch == 0:
+      print(len(os.listdir(batch_file))//batch_size)
 
-           tdata_labels = mu.gnerate_dl_pairs(yolo, test_file, batch_size, (448,448,3))
-           tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:0.5}
-           mu.test_op(sess, train_type, tloss, tfeeddict, summary, i)
+      for i in range(0,len(os.listdir(batch_file))//batch_size):
+          
+        summary_idx = len(os.listdir(batch_file))//batch_size*epoch + i
+
+        print("Epoch:{}, Iteration:{}".format(epoch, i))
+
+        index = i*batch_size
+        print(index)
+        shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, index, batch_file, shufflelist, batch_size, (448,448,3))
+
+        savemodel = False       
+        feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:1e-6}
+   
+        if summary_idx%save_epoch == 0: savemodel = True
+        mu.train_op(sess, train_type, L2_Solver, loss, feeddict, savemodel, saver, filename, summary, summary_idx)
+        
+        if summary_idx%test_epoch == 0:
+
+            tdata_labels = mu.gnerate_dl_pairs(yolo, test_file, batch_size, (448,448,3))
+            tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:0.5}
+            mu.test_op(sess, train_type, tloss, tfeeddict, summary, summary_idx)
 
     summary_writer.close()
     sess.close()  
