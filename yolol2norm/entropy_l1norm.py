@@ -107,6 +107,10 @@ with tf.device('/gpu:0'):
     lossTicket = {'loss':'g_smoothL1'}
     glosso_train = nf.glosso_train("recursive_0", 'train', x, var_dict, keep_prob, True)
     loss_pair = {'prob':glosso_train, 'gloss':weight_sum}
+
+    class_pre = tf.slice(glosso_train, [0,0],[batch_size, 490])
+    rest_pre = tf.slice(glosso_train, [0, 490],[batch_size, 1470])
+
     loss = mu.loss_zoo(lossTicket, loss_pair, label)
     L2_Solver = tf.train.MomentumOptimizer(learning_rate = learning_rate, momentum=0.9).minimize(loss)
 

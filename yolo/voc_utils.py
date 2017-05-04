@@ -67,7 +67,7 @@ def imgs_from_category_as_list(cat_name, dataset, directory):
         list of srings: all filenames from that category
     """
     df = imgs_from_category(cat_name, dataset, directory)
-    print(df)
+    #print(df)
 
     if cat_name != '':
         df = df[df['true'] == 1]
