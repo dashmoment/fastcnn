@@ -132,6 +132,11 @@ def loss_zoo(ticket, output, label):
     if ticket['loss'] == 'yoloL2norm':
         res_value = tf.add(tf.square(tf.subtract(output['prob'],label)),tf.constant(1e-8))
         sqrt_res = tf.sqrt(res_value) 
+        loss = tf.reduce_mean(tf.reduce_sum(sqrt_res, axis=1))
+
+    if ticket['loss'] == 'yoloSmoothL1':
+        res_value = tf.add(tf.square(tf.subtract(output['prob'],label)),tf.constant(1e-8))
+        sqrt_res = tf.sqrt(res_value) 
         #sqrt_res = tf.Print(sqrt_res,[sqrt_res], message="sqrt_res:")
         loss = tf.reduce_mean(tf.reduce_sum(sqrt_res, axis=1))
              
