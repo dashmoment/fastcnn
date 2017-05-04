@@ -1,7 +1,13 @@
 import  tensorflow as tf
 import sys
-import os
-sys.path.append('/home/ubuntu/workspace/fastcnn/src/yolo')
+import os 
+libpath = '/home/ubuntu/workspace/fastcnn/src/yolo'
+
+if os.path.isdir(libpath):
+    sys.path.append(libpath)
+else:
+    sys.path.append('/home/dashmoment/workspace/fastcnn/yolo')
+    
 
 import model_utility as mu
 import yolo_netfactory as nf
@@ -64,20 +70,23 @@ def getlearningrate(Epoch):
         
     return lr
     
-
-
-batch_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
-test_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_val"
+datapath = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
+if os.path.isdir(datapath):
+    batch_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
+    test_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_val"
+else:
+    batch_file = "/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012/JPEGImages"
+    test_file = batch_file
+    
 filename = "../../model/yolol2sum_epoch_SGD/fcann_v1.ckpt"
 logfile = '../../log/yolol2sum_epoch_SGD'
 checkpoint_dir = '../../model/yolol2sum_epoch_SGD'
 
 train_type = "RMS"
-continue_training = 1
-epoch_num = 2
+continue_training = 0
+epoch_num = 0
 Nepoch = 200
-loop_num = 0
-batch_size = 64
+batch_size = 4
 save_epoch = 20
 test_epoch = 50
 weight_decay = 0.0005
@@ -103,13 +112,16 @@ with tf.device('/gpu:0'):
         with tf.variable_scope('recursive_0') as scope:
             scope.reuse_variables()
             weight_sum = tf.reduce_sum([0.5*tf.reduce_sum(tf.square(tf.get_variable(x)*weight_decay)) for x in var_list])
+            w1 = tf.get_variable(var_list[0])
 
     lossTicket = {'loss':'g_smoothL1'}
     glosso_train = nf.glosso_train("recursive_0", 'train', x, var_dict, keep_prob, True)
     loss_pair = {'prob':glosso_train, 'gloss':weight_sum}
 
-    class_pre = tf.slice(glosso_train, [0,0],[batch_size, 490])
-    rest_pre = tf.slice(glosso_train, [0, 490],[batch_size, 1470])
+    class_pre = tf.slice(glosso_train, [0,0],[-1, 980])
+    rest_pre = tf.slice(glosso_train, [0, 0],[-1, 980])
+
+#    class_pre = tf.unstack(glosso_train, 490, axis=1)
 
     loss = mu.loss_zoo(lossTicket, loss_pair, label)
     L2_Solver = tf.train.MomentumOptimizer(learning_rate = learning_rate, momentum=0.9).minimize(loss)
@@ -128,10 +140,11 @@ merged_summary_train = tf.summary.merge_all('train')
 merged_summary_test= tf.summary.merge_all('test')
 
 
-config = tf.ConfigProto()
-config.gpu_options.allow_growth=True
+#config = tf.ConfigProto()
+#config.gpu_options.allow_growth=True
+#config = config
 
-with tf.Session(config = config) as sess:
+with tf.Session() as sess:
     
     summary_writer = tf.summary.FileWriter(logfile, sess.graph)  
     summary = {'writer':summary_writer, 'train':merged_summary_train, 'test':merged_summary_test} 
@@ -147,41 +160,49 @@ with tf.Session(config = config) as sess:
         sess.run(tf.global_variables_initializer())  
         
 
-    for epoch in range(epoch_num,Nepoch):
-
-      print("Start Epoch:{}".format(epoch))
-
-      shufflelist = []
-      lr = getlearningrate(epoch)
-      
-
-      for i in range(0,len(os.listdir(batch_file))//batch_size):
-          
-        summary_idx = len(os.listdir(batch_file))//batch_size*epoch + i
-        print("Epoch:{}, Iteration:{}".format(epoch, summary_idx))
-
-        index = i*batch_size
-        shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, index, batch_file, shufflelist, batch_size, (448,448,3))
-
-        savemodel = False       
-        #print("Learning Rate:{}".format(lr))
-        feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:lr}
-   
-        if summary_idx%save_epoch == 0: savemodel = True
-        mu.train_op(sess, train_type, L2_Solver, loss, feeddict, savemodel, saver, filename, summary, summary_idx)
-        
-        if summary_idx%test_epoch == 0:
-
-            tdata_labels = mu.gnerate_dl_pairs(yolo, test_file, batch_size, (448,448,3))
-            tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:0.5}
-            mu.test_op(sess, train_type, tloss, tfeeddict, summary, summary_idx)
+#    for epoch in range(epoch_num,Nepoch):
+#
+#      print("Start Epoch:{}".format(epoch))
+#
+#      shufflelist = []
+#      lr = getlearningrate(epoch)
+#      
+#
+#      for i in range(0,len(os.listdir(batch_file))//batch_size):
+#          
+#        summary_idx = len(os.listdir(batch_file))//batch_size*epoch + i
+#        print("Epoch:{}, Iteration:{}".format(epoch, summary_idx))
+#
+#        index = i*batch_size
+#        shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, index, batch_file, shufflelist, batch_size, (448,448,3))
+#
+#        savemodel = False       
+#        #print("Learning Rate:{}".format(lr))
+#        feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:lr}
+#   
+#        if summary_idx%save_epoch == 0: savemodel = True
+#        mu.train_op(sess, train_type, L2_Solver, loss, feeddict, savemodel, saver, filename, summary, summary_idx)
+#        
+#        if summary_idx%test_epoch == 0:
+#
+#            tdata_labels = mu.gnerate_dl_pairs(yolo, test_file, batch_size, (448,448,3))
+#            tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:0.5}
+#            mu.test_op(sess, train_type, tloss, tfeeddict, summary, summary_idx)
 
 #******************Test Code **********************
 #    data_labels = mu.gnerate_dl_pairs(yolo, batch_file, batch_size, (448,448,3))
-#    feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:1e-4}    
-#    w  = sess.run(weight_sum)
-#    c = sess.run(glosso_train, feed_dict=feeddict)
-#    d = sess.run(L2_Solver, feed_dict=feeddict)
+    shufflelist = []
+    shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, 0, batch_file, shufflelist, batch_size, (448,448,3))
+    feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:1, learning_rate:1e-4}    
+    
+    we1  = sess.run(w1)
+    wd1 = data_labels
+    w0 = sess.run(glosso_train, feeddict)
+    we2 = sess.run(w1)
+    wd2 = data_labels
+    w  = sess.run(class_pre, feeddict)
+#    ww  = sess.run(rest_pre, feeddict)
+   
     
     summary_writer.close()
     sess.close()  

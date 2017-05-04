@@ -8,27 +8,85 @@ import matplotlib.pyplot as plt
 import os
 import cv2
 import YOLO_tiny_tf
+import math
 
 
 import random
 
+img_shape=(300,300)
 
-target = tf.abs(tf.constant([[0.5,-2,2,2,-0.5,2],[1,0.1,-0.5,2,0.6,2]], tf.float32))
-smoothl1 = tf.cast(tf.less(target,1),tf.float32)
+feat_shapes=[(38, 38), (19, 19), (10, 10), (5, 5), (3, 3), (1, 1)]
+anchor_sizes=[(21., 45.),
+                      (45., 99.),
+                      (99., 153.),
+                      (153., 207.),
+                      (207., 261.),
+                      (261., 315.)]
 
-res1 = tf.multiply(tf.square(target),smoothl1)*0.5
-inversmoothl1 = tf.cast(tf.less(smoothl1,0.5),tf.float32)
-res2 = tf.multiply(target-0.5,inversmoothl1) 
+anchor_ratios=[[2, .5],
+                       [2, .5, 3, 1./3],
+                       [2, .5, 3, 1./3],
+                       [2, .5, 3, 1./3],
+                       [2, .5],
+                       [2, .5]]
 
-res = tf.reduce_mean(tf.reduce_sum(tf.add(res1,res2 ), axis=1))
+anchor_steps=[8, 16, 32, 64, 100, 300]
 
-sess = tf.Session()
-sess.run(tf.global_variables_initializer()) 
-smoth = sess.run(smoothl1)
-s = sess.run(inversmoothl1)
-r1 = sess.run(res1)
-r2 = sess.run(res2)
-r = sess.run(res)
+offset=0.5
+dtype=np.float32
+              
+
+#for i, s in enumerate(feat_shapes):
+#    print(i,s)
+
+
+y, x = np.mgrid[0:feat_shapes[0][0], 0:feat_shapes[0][1]]
+
+y1 = (y.astype(dtype) + offset) * anchor_steps[0] / img_shape[0]
+x2 = (x.astype(dtype) + offset) * anchor_steps[0] / img_shape[1]
+
+num_anchors = len(anchor_sizes[0]) + len(anchor_ratios[0])
+
+h = np.zeros((num_anchors, ), dtype=dtype)
+w = np.zeros((num_anchors, ), dtype=dtype)
+
+sizes = anchor_sizes[0]
+ratios = anchor_ratios[0]
+
+h[0] = anchor_sizes[0][0] / img_shape[0]
+w[0] = anchor_sizes[0][0] / img_shape[1]
+
+di = 1
+if len(sizes) > 1:
+    h[1] = math.sqrt(sizes[0] * sizes[1]) / img_shape[0]
+    w[1] = math.sqrt(sizes[0] * sizes[1]) / img_shape[1]
+    di += 1
+for i, r in enumerate(ratios):
+    h[i+di] = sizes[0] / img_shape[0] / math.sqrt(r)
+    w[i+di] = sizes[0] / img_shape[1] * math.sqrt(r)
+
+# anchor_bboxes = ssd_anchor_one_layer(img_shape, s,
+#                                             anchor_sizes[i],
+#                                             anchor_ratios[i],
+#                                             anchor_steps[i],
+#                                             offset=offset, dtype=dtype)
+
+#target = tf.abs(tf.constant([[0.5,-2,2,2,-0.5,2],[1,0.1,-0.5,2,0.6,2]], tf.float32))
+#smoothl1 = tf.cast(tf.less(target,1),tf.float32)
+#
+#res1 = tf.multiply(tf.square(target),smoothl1)*0.5
+#inversmoothl1 = tf.cast(tf.less(smoothl1,0.5),tf.float32)
+#res2 = tf.multiply(target-0.5,inversmoothl1) 
+#
+#res = tf.reduce_mean(tf.reduce_sum(tf.add(res1,res2 ), axis=1))
+#
+#sess = tf.Session()
+#sess.run(tf.global_variables_initializer()) 
+#smoth = sess.run(smoothl1)
+#s = sess.run(inversmoothl1)
+#r1 = sess.run(res1)
+#r2 = sess.run(res2)
+#r = sess.run(res)
 #batchpath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train'
 #batchsize = 64
 #shufflelist = []

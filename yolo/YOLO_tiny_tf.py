@@ -4,10 +4,16 @@ import numpy as np
 import tensorflow as tf
 import cv2
 import time
-
+import os 
 
 
 class YOLO_TF:
+    
+    weights_file = '/home/ubuntu/workspace/fastcnn/model/yolo_model/YOLO_tiny.ckpt'
+    if not os.path.exists(weights_file):
+         weights_file = '/home/dashmoment/workspace/model/YOLO_tiny.ckpt'
+    
+    
     fromfile = "test/2008_000090.jpg"
     tofile_img = 'test/output.jpg'
     tofile_txt = 'test/output.txt'
@@ -15,7 +21,6 @@ class YOLO_TF:
     filewrite_img = False
     filewrite_txt = False
     disp_console = True
-    weights_file = '/home/ubuntu/workspace/fastcnn/model/yolo_model/YOLO_tiny.ckpt'
     alpha = 0.1
     threshold = 0.05 #0.2
     iou_threshold = 0.2 #0.5
