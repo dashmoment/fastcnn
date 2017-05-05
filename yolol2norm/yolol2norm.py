@@ -73,13 +73,13 @@ logfile = '../../log/yolol2sum_epoch_SGD'
 checkpoint_dir = '../../model/yolol2sum_epoch_SGD'
 
 train_type = "RMS"
-continue_training = 1
-epoch_num = 2
+continue_training = 0
+epoch_num = 0
 Nepoch = 200
 loop_num = 0
 batch_size = 64
-save_epoch = 20
-test_epoch = 50
+save_epoch = 200
+test_epoch = 500
 weight_decay = 0.0005
 
 
@@ -149,6 +149,7 @@ with tf.Session(config = config) as sess:
 
       shufflelist = []
       lr = getlearningrate(epoch)
+      print("Learning Rate:{}".format(lr))
       
 
       for i in range(0,len(os.listdir(batch_file))//batch_size):
@@ -160,7 +161,6 @@ with tf.Session(config = config) as sess:
         shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, index, batch_file, shufflelist, batch_size, (448,448,3))
 
         savemodel = False       
-        #print("Learning Rate:{}".format(lr))
         feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:lr}
    
         if summary_idx%save_epoch == 0: savemodel = True
