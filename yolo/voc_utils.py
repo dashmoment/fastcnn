@@ -8,7 +8,7 @@ import skimage
 from skimage import io
 
 
-root_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012'
+root_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test'
 img_dir = os.path.join(root_dir, 'JPEGImages/')
 ann_dir = os.path.join(root_dir, 'Annotations')
 set_dir = os.path.join(root_dir, 'ImageSets', 'Main')
@@ -28,7 +28,7 @@ def list_image_sets():
         'tvmonitor']
 
 
-def imgs_from_category(cat_name, dataset):
+def imgs_from_category(cat_name, dataset, directory):
     """
     Summary
 
@@ -39,16 +39,22 @@ def imgs_from_category(cat_name, dataset):
     Returns:
         pandas dataframe: pandas DataFrame of all filenames from that category
     """
-    filename = os.path.join(set_dir, cat_name + "_" + dataset + ".txt")
+    if cat_name == '':
+         filename = os.path.join(directory, dataset + ".txt")
+    else:
+        filename = os.path.join(directory,  cat_name + "_" + dataset + ".txt")
+    
     df = pd.read_csv(
         filename,
         delim_whitespace=True,
         header=None,
+        dtype={0: str},
         names=['filename', 'true'])
+    
     return df
 
 
-def imgs_from_category_as_list(cat_name, dataset):
+def imgs_from_category_as_list(cat_name, dataset, directory):
     """
     Get a list of filenames for images in a particular category
     as a list rather than a pandas dataframe.
@@ -60,9 +66,30 @@ def imgs_from_category_as_list(cat_name, dataset):
     Returns:
         list of srings: all filenames from that category
     """
-    df = imgs_from_category(cat_name, dataset)
-    df = df[df['true'] == 1]
+    df = imgs_from_category(cat_name, dataset, directory)
+    #print(df)
+
+    if cat_name != '':
+        df = df[df['true'] == 1]
+    else:
+        df = df
     return df['filename'].values
+
+#def imgs_from_category_as_list(cat_name, dataset, directory):
+#    """
+#    Get a list of filenames for images in a particular category
+#    as a list rather than a pandas dataframe.#
+
+#    Args:
+#        cat_name (string): Category name as a string (from list_image_sets())
+#        dataset (string): "train", "val", "train_val", or "test" (if available)#
+
+#    Returns:
+#        list of srings: all filenames from that category
+#    """
+#    df = imgs_from_category(cat_name, dataset, directory)
+#    #df = df[df['true'] == 1]
+#    return df['filename'].values
 
 
 def annotation_file_from_img(img_name):
@@ -92,10 +119,17 @@ def load_annotation(img_filename):
             BeautifulSoup data structure
     """
     xml = ""
-    with open(annotation_file_from_img(img_filename)) as f:
-        xml = f.readlines()
-    xml = ''.join([line.strip('\t') for line in xml])
-    return BeautifulSoup(xml)
+
+    if os.path.isfile(annotation_file_from_img(img_filename)):
+
+        
+        with open(annotation_file_from_img(img_filename)) as f:
+
+            xml = f.readlines()
+        xml = ''.join([line.strip('\t') for line in xml])
+
+    return BeautifulSoup(xml,"html5lib")
+    
 
 
 # TODO: implement this
@@ -236,7 +270,10 @@ def get_masks(cat_name, data_type, mask_type=None):
     blank_img = None
     for row_num, entry in df.iterrows():
         img_url = os.path.join(img_dir, entry['fname'])
+        
+        print("URL:{}".format(img_url))
         if img_url != prev_url:
+            
             if blank_img is not None:
                 # TODO: options for how to process the masks
                 # make sure the mask is from 0 to 1
@@ -262,6 +299,7 @@ def get_masks(cat_name, data_type, mask_type=None):
             raise ValueError('Not a valid mask type')
     # TODO: options for how to process the masks
     # make sure the mask is from 0 to 1
+    
     max_val = blank_img.max()
     if max_val > 0:
         min_val = blank_img.min()
