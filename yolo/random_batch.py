@@ -147,23 +147,5 @@ def random_transform(img,imagesize):
        
     return res
 
-#dname = "/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012/JPEGImages"
-dname = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train"
-b = yolo_image_random_batch_corp(dname, 128, (448,448,3), np.float32)
 
 
-
-#x = tf.placeholder(tf.float32,(None,255,255,3))
-#image_submean = tf.subtract(x, tf.reduce_mean(x))
-#
-#rconv1_w = tf.Variable(tf.random_normal([11,11,3,48]))
-#rconv1_b = tf.Variable(tf.random_normal([48]))
-#rconv1_in = tf.nn.conv2d(image_submean, rconv1_w, strides=[1,2,2,1], padding='SAME')
-#rconv_in = tf.nn.bias_add(rconv1_in, rconv1_b)
-#rconv1_in = tf.nn.relu(rconv_in)
-#
-#with tf.Session() as sess:
-#    init = tf.global_variables_initializer()
-#    sess.run(init)  
-#    
-#    p = sess.run(rconv1_in, feed_dict={x:b}
