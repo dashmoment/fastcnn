@@ -78,17 +78,17 @@ else:
     batch_file = "/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012/JPEGImages"
     test_file = batch_file
     
-filename = "../../model/yolol2sum_epoch_SGD/fcann_v1.ckpt"
-logfile = '../../log/yolol2sum_epoch_SGD'
-checkpoint_dir = '../../model/yolol2sum_epoch_SGD'
+filename = "../../model/l1norm_entropy/fcann_v1.ckpt"
+logfile = '../../log/l1norm_entropy'
+checkpoint_dir = '../../model/l1norm_entropy'
 
 train_type = "RMS"
 continue_training = 0
 epoch_num = 0
 Nepoch = 200
-batch_size = 4
-save_epoch = 20
-test_epoch = 50
+batch_size = 64
+save_epoch = 200
+test_epoch = 500
 weight_decay = 0.0005
 
 
@@ -114,22 +114,17 @@ with tf.device('/gpu:0'):
             weight_sum = tf.reduce_sum([0.5*tf.reduce_sum(tf.square(tf.get_variable(x)*weight_decay)) for x in var_list])
             w1 = tf.get_variable(var_list[0])
 
-    lossTicket = {'loss':'g_smoothL1'}
+    
     glosso_train = nf.glosso_train("recursive_0", 'train', x, var_dict, keep_prob, True)
-    loss_pair = {'prob':glosso_train, 'gloss':weight_sum}
-
-
-    label_cls = tf.slice(label, [0,0],[-1, 980])
-    label_rest = tf.slice(label, [0, 980],[-1, 1470])
-    pre_cls = tf.slice(glosso_train, [0,0],[-1, 980])
-    pre_res = tf.slice(glosso_train, [0, 980],[-1, 1470])
-
-
+    
+    
+    lossTicket = {'loss':'yolo_kl_l1'}
+    loss_pair = {'prob':glosso_train, 'gloss':weight_sum}  
     loss = mu.loss_zoo(lossTicket, loss_pair, label)
     L2_Solver = tf.train.MomentumOptimizer(learning_rate = learning_rate, momentum=0.9).minimize(loss)
 
 
-    tlossTicket = {'loss':'g_smoothL1'}
+    tlossTicket = {'loss':'yolo_kl_l1'}
     glosso_test = nf.glosso_train("recursive_0", 'test', x, var_dict, keep_prob, False)
     tloss_pair = {'prob':glosso_test, 'gloss':weight_sum}
     tloss = mu.loss_zoo(tlossTicket, tloss_pair, tlabel)  
@@ -142,11 +137,10 @@ merged_summary_train = tf.summary.merge_all('train')
 merged_summary_test= tf.summary.merge_all('test')
 
 
-#config = tf.ConfigProto()
-#config.gpu_options.allow_growth=True
-#config = config
+config = tf.ConfigProto()
+config.gpu_options.allow_growth=True
 
-with tf.Session() as sess:
+with tf.Session(config = config) as sess:
     
     summary_writer = tf.summary.FileWriter(logfile, sess.graph)  
     summary = {'writer':summary_writer, 'train':merged_summary_train, 'test':merged_summary_test} 
@@ -162,52 +156,46 @@ with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())  
         
 
-#    for epoch in range(epoch_num,Nepoch):
-#
-#      print("Start Epoch:{}".format(epoch))
-#
-#      shufflelist = []
-#      lr = getlearningrate(epoch)
-#      
-#
-#      for i in range(0,len(os.listdir(batch_file))//batch_size):
-#          
-#        summary_idx = len(os.listdir(batch_file))//batch_size*epoch + i
-#        print("Epoch:{}, Iteration:{}".format(epoch, summary_idx))
-#
-#        index = i*batch_size
-#        shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, index, batch_file, shufflelist, batch_size, (448,448,3))
-#
-#        savemodel = False       
-#        #print("Learning Rate:{}".format(lr))
-#        feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:lr}
-#   
-#        if summary_idx%save_epoch == 0: savemodel = True
-#        mu.train_op(sess, train_type, L2_Solver, loss, feeddict, savemodel, saver, filename, summary, summary_idx)
-#        
-#        if summary_idx%test_epoch == 0:
-#
-#            tdata_labels = mu.gnerate_dl_pairs(yolo, test_file, batch_size, (448,448,3))
-#            tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:0.5}
-#            mu.test_op(sess, train_type, tloss, tfeeddict, summary, summary_idx)
+    for epoch in range(epoch_num,Nepoch):
+
+      print("Start Epoch:{}".format(epoch))
+
+      shufflelist = []
+      lr = getlearningrate(epoch)
+      
+
+      for i in range(0,len(os.listdir(batch_file))//batch_size):
+          
+        summary_idx = len(os.listdir(batch_file))//batch_size*epoch + i
+        print("Epoch:{}, Iteration:{}".format(epoch, summary_idx))
+
+        index = i*batch_size
+        shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, index, batch_file, shufflelist, batch_size, (448,448,3))
+
+        savemodel = False       
+        #print("Learning Rate:{}".format(lr))
+        feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:0.5, learning_rate:lr}
+   
+        if summary_idx%save_epoch == 0: savemodel = True
+        mu.train_op(sess, train_type, L2_Solver, loss, feeddict, savemodel, saver, filename, summary, summary_idx)
+        
+        if summary_idx%test_epoch == 0:
+
+            tdata_labels = mu.gnerate_dl_pairs(yolo, test_file, batch_size, (448,448,3))
+            tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:0.5}
+            mu.test_op(sess, train_type, tloss, tfeeddict, summary, summary_idx)
 
 #******************Test Code **********************
-#    data_labels = mu.gnerate_dl_pairs(yolo, batch_file, batch_size, (448,448,3))
-    shufflelist = []
-    shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, 0, batch_file, shufflelist, batch_size, (448,448,3))
-    feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:1, learning_rate:1e-4}    
-    
-    we1  = sess.run(w1)
-    wd1 = data_labels
-    w0 = sess.run(glosso_train, feeddict)
-    we2 = sess.run(w1)
-    wd2 = data_labels
-    w  = sess.run(class_pre, feeddict)
-#    ww  = sess.run(rest_pre, feeddict)
-   
-    
-    summary_writer.close()
-    sess.close()  
+#    shufflelist = []
+#    shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, 0, batch_file, shufflelist, batch_size, (448,448,3))
+#    feeddict = {x:data_labels['data'], label:data_labels['label'], keep_prob:1, learning_rate:1e-4}    
+#    
+#    wloss = sess.run(loss, feeddict)
+#    wlossl1 = sess.run(lossl1, feeddict)
+#    wklloss = sess.run(lossl2, feeddict)
+#
+#    summary_writer.close()
+#    sess.close()  
     
 
 

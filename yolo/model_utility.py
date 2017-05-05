@@ -133,7 +133,37 @@ def loss_zoo(ticket, output, label):
         r2 = tf.multiply((res_value - 0.5), invsmoothL1)       
         res = tf.add(r1,r2)
 
-        loss = tf.reduce_mean(tf.add(tf.reduce_sum(res, axis=1),gloss))
+        loss = tf.add(tf.reduce_mean(tf.reduce_sum(res, axis=1)),gloss)
+
+    if ticket['loss'] == 'yolo_kl_l1':
+        assert 'gloss' in output, 'label and output should contain prob and gloss'
+        
+        predict = output['prob']
+        gloss = output['gloss']
+        
+        label_cls = tf.slice(label, [0,0],[-1, 980])
+        #label_conf = tf.slice(label, [0,980],[-1, 98])
+        label_offset = tf.slice(label, [0, 980],[-1, 490])
+    
+        pre_cls = tf.slice(predict, [0,0],[-1, 980])
+        #pre_conf = tf.slice(gloss, [0,980],[-1, 98])
+        pre_offset = tf.slice(predict, [0, 980],[-1, 490])
+
+        #===========KL Divergence of each class====================
+        label_cls = tf.nn.softmax(tf.reshape(label_cls, [-1,49,20] ))
+        pre_cls = tf.nn.softmax(tf.reshape(pre_cls, [-1,49,20]))
+        kl_loss = tf.reduce_sum(tf.multiply(pre_cls, tf.log(tf.divide(pre_cls,label_cls))), axis=[1,2])
+
+        #============SmoothL1 for rest parts======================
+        res_value = tf.abs(tf.subtract(pre_offset,label_offset))
+        smoothL1 = tf.cast(tf.less(res_value,1), tf.float32)
+        invsmoothL1 = tf.cast(tf.less(smoothL1,0.5),tf.float32)
+        r1 = tf.multiply(tf.square(res_value), smoothL1)*0.5
+        r2 = tf.multiply((res_value - 0.5), invsmoothL1)       
+        offset_loss = tf.reduce_sum(tf.add(r1,r2), axis=1)#
+
+        loss = tf.add(tf.reduce_mean(tf.add(kl_loss, offset_loss)),gloss)
+        
 
     #============General Loss==============
     if ticket['loss'] == 'L2norm':

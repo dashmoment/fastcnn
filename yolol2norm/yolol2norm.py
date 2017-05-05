@@ -73,8 +73,8 @@ logfile = '../../log/yolol2sum_epoch_SGD'
 checkpoint_dir = '../../model/yolol2sum_epoch_SGD'
 
 train_type = "RMS"
-continue_training = 0
-epoch_num = 0
+continue_training = 1
+epoch_num = 1
 Nepoch = 200
 loop_num = 0
 batch_size = 64
