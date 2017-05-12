@@ -6,7 +6,7 @@ import os
 import utility as ut
 
 
-def init_yolo_weight(sess,yolo_cls, ds_yolo):
+def init_yolo_weight(sess, yolo ,ds_yolo):
     
     key_pairs = {
             'conv1w':'Variable',

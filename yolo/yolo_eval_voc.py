@@ -50,7 +50,7 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
 
 img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/JPEGImages'
 labelfiles = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/ImageSets/Main'
-checkpoint_dir = '../../model/yolol2sum_epoch_SGD'
+checkpoint_dir = '../../model/l1norm_entropy'
 classes = voc.list_image_sets()
 val_list = voc.imgs_from_category_as_list('', 'test', labelfiles)
 
@@ -87,7 +87,7 @@ elapse_old = 0
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
 
-val_name = val_list[0]
+val_name = val_list[1]
 
 with tf.Session(config = config) as sess:
     
