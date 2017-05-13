@@ -13,6 +13,57 @@ import time
 import model_utility as mu
 import matplotlib.pyplot as plt
 
+
+def weight_pruning(yolo_obj, sess, key_pairs, var_list):
+    
+    for var in var_list:
+        tensors = yolo_old.sess.run(tf.get_default_graph().get_tensor_by_name(key_pairs[var]+':0'))
+        
+        with tf.variable_scope('recursive_1') as scope:
+            scope.reuse_variables() 
+            tensors_s =  sess.run(tf.get_variable(var))
+              
+        if np.shape(tensors) != np.shape(tensors_s):
+                        
+                if (len(np.shape(tensors))) > 1:
+                
+                    if (len(np.shape(tensors))) > 2:                         
+                        dim_sum = np.sum(np.sum(np.sum(tensors, axis=0),axis=0), axis=1)
+                    else:
+                        dim_sum = np.sum(tensors, axis=1)
+                    
+                    dim_sum = np.abs(dim_sum)
+                    dim_sort = np.unravel_index(dim_sum.argsort(axis=None), dims=int(len(dim_sum)))
+                    del_list = [dim_sort[0][x] for x in range(np.shape(tensors)[-2] -  np.shape(tensors_s)[-2])]
+                    
+                    dim_array = np.delete(tensors,del_list, -2)
+                    
+                    if (len(np.shape(tensors))) > 2:        
+                        kernel_sum = np.sum(np.sum(np.sum(dim_array,axis=0), axis=0),axis=0)
+                    else:
+                        kernel_sum = np.sum(dim_array, axis=0)
+                    
+                    kernel_sum = np.abs(kernel_sum)
+                    kernel_sort = np.unravel_index(kernel_sum.argsort(axis=None), dims=int(len(kernel_sum)))
+                    kdel_list = [kernel_sort[0][x] for x in range(np.shape(tensors)[-1] -  np.shape(tensors_s)[-1])]
+                    kernel_array = np.delete(dim_array, kdel_list, -1)
+                
+                else:
+                    kernel_array = np.delete(tensors, kdel_list,0)
+                
+        else:
+            kernel_array = tensors
+
+    
+        with tf.variable_scope('recursive_1') as scope:
+                scope.reuse_variables() 
+                op = tf.assign(tf.get_variable(var), kernel_array)
+                sess.run(op)
+                tensors_s =  sess.run(tf.get_variable(var))
+            
+            
+    return kernel_array
+
 key_pairs = {
             'conv1w':'Variable',
             'conv1b':'Variable_1',
@@ -106,82 +157,38 @@ x = tf.placeholder(tf.float32,(None,448,448,3))
 label = tf.placeholder(tf.float32,(None,1470), name='labels')
 keep_prob = tf.placeholder(tf.float32)
 
-
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
 with tf.Session(config = config) as sess:
     
      sess.run(tf.global_variables_initializer())  
-
-     with tf.name_scope('Weight_sum'):        
-                     
-                   
-                    for var in var_list:
-                        
-                        yolo_var = yolo_old.sess.run(tf.get_default_graph().get_tensor_by_name(key_pairs[var]+':0'))
-                        
-                        with tf.variable_scope('recursive_0') as scope:
-                            scope.reuse_variables()  
-                            op = tf.assign(tf.get_variable(var), yolo_var)
-                            sess.run(op)                   
-                            tensors =  sess.run(tf.get_variable(var))
-                            
-                        with tf.variable_scope('recursive_1') as scope:
-                                scope.reuse_variables() 
-                                tensors_s =  sess.run(tf.get_variable(var))
-                      
-                        
-                        if np.shape(tensors) != np.shape(tensors_s):
-                        
-                            if (len(np.shape(tensors))) > 1:
-                                
-                                
-                                if (len(np.shape(tensors))) > 2:                         
-                                    dim_sum = np.abs(np.sum(np.sum(np.sum(tensors, axis=0),axis=0), axis=1))
-                                else:
-                                     dim_sum = np.abs(np.sum(tensors, axis=1))
-                                
-                                dim_sort = np.unravel_index(dim_sum.argsort(axis=None), dims=int(len(dim_sum)))
-                                del_list = [dim_sort[0][x] for x in range(np.shape(tensors)[-2] -  np.shape(tensors_s)[-2])]
-                                
-                                dim_array = np.delete(tensors,del_list, -2)
-                                
-                                if (len(np.shape(tensors))) > 2:        
-                                    kernel_sum = np.abs(np.sum(np.sum(np.sum(dim_array, axis=0),axis=0), axis=0))
-                                else:
-                                    kernel_sum = np.abs(np.sum(tensors, axis=0))
-                                    
-                                kernel_sort = np.unravel_index(kernel_sum.argsort(axis=None), dims=int(len(kernel_sum)))
-                                kdel_list = [kernel_sort[0][x] for x in range(np.shape(tensors)[-1] -  np.shape(tensors_s)[-1])]
-                                kernel_array = np.delete(dim_array, kdel_list, -1)
-                            
-                                
-                                
-                            if (len(np.shape(tensors))) == 1 and np.shape(tensors) != np.shape(tensors_s):
-                                
-                                 kernel_array = np.delete(tensors, kdel_list,0)
-                        
-                        else:
-                            kernel_array = tensors
-
-                    
-                        with tf.variable_scope('recursive_1') as scope:
-                                scope.reuse_variables() 
-                                op = tf.assign(tf.get_variable(var), kernel_array)
-                                sess.run(op)
-                                tensors_s =  sess.run(tf.get_variable(var))
-        
-    
      
-     fpath = '/home/dashmoment/workspace/dataset/VOCdevkit/VOC2007/Test/JPEGImages/000010.jpg'    
+     res = weight_pruning(yolo_old, sess, key_pairs, var_list)
+
+
+     fpath = '/home/dashmoment/workspace/dataset/VOCdevkit/VOC2007/Test/JPEGImages/000011.jpg'    
      w,h,inputs = ut.vocimg_preprocess(fpath)
      src = cv2.imread(fpath)
      
-     yolo_ds_old = nf.glosso_train("recursive_0", 'test', x, var_dict, keep_prob, False)
      yolo_ds = nf.glosso_train("recursive_1", 'test', x, var_dict, keep_prob, False)  
      
-     prob_label_old = sess.run(yolo_ds_old,feed_dict={x:inputs, keep_prob:1})
-     prob_label = sess.run(yolo_ds,feed_dict={x:inputs, keep_prob:1})
+     for i in range(10):
+    
+         
+         
+         s = time.clock()
+         prob_label_old = yolo_old.sess.run(yolo_old.fc_19, feed_dict={yolo_old.x:inputs})
+         e = time.clock()    
+         print("Time old:{}".format(e-s))
+         
+         s = time.clock()     
+         prob_label = sess.run(yolo_ds,feed_dict={x:inputs, keep_prob:1})
+         e = time.clock()
+         print("Time:{}".format(e-s))
+     
+     
+    
+     
      
      
 #     lossTicket = {'loss':'yolo_kl_l1'}

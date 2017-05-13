@@ -130,8 +130,6 @@ with tf.Session(config = config) as sess:
         e = time.clock()
         elapse = elapse + e-s
 
-        
-        
         results = ut.interpret_output(prob_label[0],w,h)
         for i in range(len(results)):
             

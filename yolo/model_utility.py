@@ -317,6 +317,8 @@ def quickSummary2(key_data):
     tf.summary.scalar('Group_loss',key_data['Group_loss'],collections='train')
     tf.summary.scalar('Test_RMSE',key_data['Test_RMSE'],collections='test')
     tf.summary.scalar('Test_Group_loss',key_data['Test_Group_loss'],collections='test')
+    
+    
+    
 
-   
 
