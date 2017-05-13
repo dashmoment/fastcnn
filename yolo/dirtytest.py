@@ -59,7 +59,7 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
                                        
                     if i > 0 and len(shape)  > 1 : shape[-2] = int(init_layers[i-1][1][-1])
                     
-                    shape[-1] = int(init_layers[i][1][-1] - reduce_percent*(init_layers[i][1][-1]))
+                    shape[-1] = int(init_layers[i][1][-1]*reduce_percent)
                     
                     
                 init_layers[i][1] = shape
@@ -70,7 +70,7 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
                     if idx == 0:
                         init_layers[i][1][-2] = 50176
                     if idx == 1:
-                        init_layers[i][1][-2] = 40131
+                        init_layers[i][1][-2] = 45129
                    
           
                 tf.get_variable(init_layers[i][0],init_layers[i][1], initializer=tf.contrib.layers.xavier_initializer())
@@ -82,6 +82,7 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
 
 
 img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/JPEGImages'
+shrink_ratio = 0.9
 
 if os.path.isdir(img_root):
 
@@ -92,15 +93,18 @@ else:
 
 yolo_old = YOLO_tiny_tf.YOLO_TF()
 
-with tf.device('/gpu:1'):
+with tf.device('/gpu:0'):
     classes = voc.list_image_sets()
     val_list = voc.imgs_from_category_as_list('', 'test', labelfiles)
     
     model_ticket={'root':'yolo_tiny', 'branch':'vanilla'}
     init_layers = mu.model_zoo(model_ticket)
-    var_dict = recursive_create_var('recursive', 2, 0.1, init_layers)
+    var_dict = recursive_create_var('recursive', 2, shrink_ratio, init_layers)
     var_list = var_dict['recursive_0']
     
+x = tf.placeholder(tf.float32,(None,448,448,3))
+label = tf.placeholder(tf.float32,(None,1470), name='labels')
+keep_prob = tf.placeholder(tf.float32)
 
 
 config = tf.ConfigProto()
@@ -110,36 +114,89 @@ with tf.Session(config = config) as sess:
      sess.run(tf.global_variables_initializer())  
 
      with tf.name_scope('Weight_sum'):        
-            with tf.variable_scope('recursive_0') as scope:
-                    scope.reuse_variables()           
+                     
                    
-                    for var in key_pairs:
+                    for var in var_list:
+                        
                         yolo_var = yolo_old.sess.run(tf.get_default_graph().get_tensor_by_name(key_pairs[var]+':0'))
-                        op = tf.assign(tf.get_variable(var), yolo_var)
-                        sess.run(op)
                         
-                        tensors =  sess.run(tf.get_variable(var))
-                        tmp2 = np.array()
-                        
-                        if (len(np.shape(tensors))) == 4:
+                        with tf.variable_scope('recursive_0') as scope:
+                            scope.reuse_variables()  
+                            op = tf.assign(tf.get_variable(var), yolo_var)
+                            sess.run(op)                   
+                            tensors =  sess.run(tf.get_variable(var))
                             
-                            tensors2 = tensors
-                            mean = np.mean(np.mean(tensors, axis=0),axis=0)
-                            
-                            for i in range(mean.shape[-1]):
-                                axis_mean = mean[:,i]
-                                sort = np.unravel_index(axis_mean.argsort(axis=None), dims=int(len(axis_mean)*0.9))
-                            
-                        
+                        with tf.variable_scope('recursive_1') as scope:
+                                scope.reuse_variables() 
+                                tensors_s =  sess.run(tf.get_variable(var))
                       
+                        
+                        if np.shape(tensors) != np.shape(tensors_s):
+                        
+                            if (len(np.shape(tensors))) > 1:
+                                
+                                
+                                if (len(np.shape(tensors))) > 2:                         
+                                    dim_sum = np.abs(np.sum(np.sum(np.sum(tensors, axis=0),axis=0), axis=1))
+                                else:
+                                     dim_sum = np.abs(np.sum(tensors, axis=1))
+                                
+                                dim_sort = np.unravel_index(dim_sum.argsort(axis=None), dims=int(len(dim_sum)))
+                                del_list = [dim_sort[0][x] for x in range(np.shape(tensors)[-2] -  np.shape(tensors_s)[-2])]
+                                
+                                dim_array = np.delete(tensors,del_list, -2)
+                                
+                                if (len(np.shape(tensors))) > 2:        
+                                    kernel_sum = np.abs(np.sum(np.sum(np.sum(dim_array, axis=0),axis=0), axis=0))
+                                else:
+                                    kernel_sum = np.abs(np.sum(tensors, axis=0))
+                                    
+                                kernel_sort = np.unravel_index(kernel_sum.argsort(axis=None), dims=int(len(kernel_sum)))
+                                kdel_list = [kernel_sort[0][x] for x in range(np.shape(tensors)[-1] -  np.shape(tensors_s)[-1])]
+                                kernel_array = np.delete(dim_array, kdel_list, -1)
+                            
+                                
+                                
+                            if (len(np.shape(tensors))) == 1 and np.shape(tensors) != np.shape(tensors_s):
+                                
+                                 kernel_array = np.delete(tensors, kdel_list,0)
+                        
+                        else:
+                            kernel_array = tensors
+
                     
-                    
+                        with tf.variable_scope('recursive_1') as scope:
+                                scope.reuse_variables() 
+                                op = tf.assign(tf.get_variable(var), kernel_array)
+                                sess.run(op)
+                                tensors_s =  sess.run(tf.get_variable(var))
         
     
-
-
-
-
+     
+     fpath = '/home/dashmoment/workspace/dataset/VOCdevkit/VOC2007/Test/JPEGImages/000010.jpg'    
+     w,h,inputs = ut.vocimg_preprocess(fpath)
+     src = cv2.imread(fpath)
+     
+     yolo_ds_old = nf.glosso_train("recursive_0", 'test', x, var_dict, keep_prob, False)
+     yolo_ds = nf.glosso_train("recursive_1", 'test', x, var_dict, keep_prob, False)  
+     
+     prob_label_old = sess.run(yolo_ds_old,feed_dict={x:inputs, keep_prob:1})
+     prob_label = sess.run(yolo_ds,feed_dict={x:inputs, keep_prob:1})
+     
+     
+#     lossTicket = {'loss':'yolo_kl_l1'}
+#     loss_pair = {'prob':prob_label, 'gloss':0}  
+#     loss = mu.loss_zoo(lossTicket, loss_pair, label)
+#     
+#     cost = sess.run(loss, feed_dict={x:inputs, label:prob_label_old, keep_prob:1})
+#     
+#     
+#     results_old = ut.interpret_output(prob_label_old[0],w,h)
+#     results = ut.interpret_output(prob_label[0],w,h)
+#     
+#     ut.show_results(src,results_old)
+#     cv2.waitKey()
+#     ut.show_results(src,results)
 
 
 
