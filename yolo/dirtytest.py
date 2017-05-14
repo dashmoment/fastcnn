@@ -133,61 +133,97 @@ with tf.Session(config = config) as sess:
      
      yolo_ds = nf.glosso_train(var_scope, 'test', x, var_dict, keep_prob, False)  
      
-     for i in range(10):
-    
          
-         
-         s = time.clock()
-         prob_label_old = yolo_old.sess.run(yolo_old.fc_19, feed_dict={yolo_old.x:inputs})
-         e = time.clock()    
-         print("Time old:{}".format(e-s))
-         
-         s = time.clock()     
-         prob_label = sess.run(yolo_ds,feed_dict={x:inputs, keep_prob:1})
-         e = time.clock()
-         print("Time:{}".format(e-s))
+     s = time.clock()
+     prob_label_old = yolo_old.sess.run(yolo_old.fc_19, feed_dict={yolo_old.x:inputs})
+     e = time.clock()    
+     print("Time old:{}".format(e-s))
+     
+     s = time.clock()     
+     prob_label = sess.run(yolo_ds,feed_dict={x:inputs, keep_prob:1})
+     e = time.clock()
+     print("Time:{}".format(e-s))
+     
+     results_old = ut.interpret_output(prob_label_old[0],w,h)
+     results = ut.interpret_output(prob_label[0],w,h)
+     
+     label = prob_label_old[0]
+     predict = prob_label[0]
      
      
-     label = prob_label_old
-     predict = prob_label
-     label_cls = tf.slice(label, [0,0],[-1, 980])
-     label_offset = tf.slice(label, [0, 980],[-1, 490])
-
-     pre_cls = tf.slice(predict, [0,0],[-1, 980])
-     pre_offset = tf.slice(predict, [0, 980],[-1, 490])
-
-    #===========KL Divergence of each class====================
-     label_cls = tf.nn.softmax(tf.reshape(label_cls, [-1,49,20] ))
-     pre_cls = tf.nn.softmax(tf.reshape(pre_cls, [-1,49,20]))
-     kl_loss = tf.reduce_sum(tf.multiply(pre_cls, tf.log(tf.divide(pre_cls,label_cls))), axis=[1,2])
-
-    #============SmoothL1 for rest parts======================
-     res_value = tf.abs(tf.subtract(pre_offset,label_offset))
-     smoothL1 = tf.cast(tf.less(res_value,1), tf.float32)
-     invsmoothL1 = tf.cast(tf.less(smoothL1,0.5),tf.float32)
-     r1 = tf.multiply(tf.square(res_value), smoothL1)*0.5
-     r2 = tf.multiply((res_value - 0.5), invsmoothL1)       
-     offset_loss = tf.reduce_sum(tf.add(r1,r2), axis=1)#
+     conf = np.zeros((7,7,2,20))
+     pre_conf = np.zeros((7,7,2,20))
+     label_probs = np.reshape(label[0:980],(7,7,20))
+     label_scales = np.reshape(label[980:1078],(7,7,2))
+     label_boxes = np.reshape(label[1078:],(7,7,2,4))
      
-     skl_loss = sess.run(kl_loss)
-     soffset_loss = sess.run(offset_loss)
-     loss = sess.run(tf.add(kl_loss, offset_loss))
+     pre_probs = np.reshape(predict[0:980],(7,7,20))
+     pre_scales = np.reshape(predict[980:1078],(7,7,2))
+     pre_boxes = np.reshape(predict[1078:],(7,7,2,4))
      
-     l_cls = sess.run(label_cls)
-     p_cls = sess.run(pre_cls)
-
-#     results_old = ut.interpret_output(prob_label_old[0],w,h)
-#     results = ut.interpret_output(prob_label[0],w,h)
+     for i in range(2):
+            for j in range(20):
+                conf[:,:,i,j] = np.multiply(label_probs[:,:,j],label_scales[:,:,i])
+                pre_conf[:,:,i,j] = np.multiply(pre_probs[:,:,j],pre_scales[:,:,i])
+                
+     filter_mat_probs = np.array(conf>=0.1,dtype='int')    
+     conf = np.multiply(conf, filter_mat_probs)
+     filter_mat_probs = np.nonzero(filter_mat_probs)
+     
+     for k in range(len(filter_mat_probs[0])):
+         conf[filter_mat_probs[0][k],filter_mat_probs[1][k],filter_mat_probs[2][k],filter_mat_probs[3][k]] = 1
+     
+     
+#     label_cls = tf.slice(label, [0,0],[-1, 980])
+#     label_conf = tf.slice(label, [0, 980],[-1, 98])
+#     label_offset = tf.slice(label, [0, 1078],[-1, 392])
+#
+#     pre_cls = tf.slice(predict, [0,0],[-1, 980])
+#     pre_conf = tf.slice(predict, [0, 980],[-1, 98])
+#     pre_offset = tf.slice(predict, [0, 980],[-1, 392])
+     
+     
+     
+     
+#     label = prob_label_old
+#     predict = prob_label
+#     label_cls = tf.slice(label, [0,0],[-1, 980])
+#     label_offset = tf.slice(label, [0, 980],[-1, 490])
+#
+#     pre_cls = tf.slice(predict, [0,0],[-1, 980])
+#     pre_offset = tf.slice(predict, [0, 980],[-1, 490])
+#
+#    #===========KL Divergence of each class====================
+#     label_cls = tf.nn.softmax(tf.reshape(label_cls, [-1,49,20] ))
+#     pre_cls = tf.nn.softmax(tf.reshape(pre_cls, [-1,49,20]))
+#     kl_loss = tf.reduce_sum(tf.multiply(pre_cls, tf.log(tf.divide(pre_cls,label_cls))), axis=[1,2])
+#
+#    #============SmoothL1 for rest parts======================
+#     res_value = tf.abs(tf.subtract(pre_offset,label_offset))
+#     smoothL1 = tf.cast(tf.less(res_value,1), tf.float32)
+#     invsmoothL1 = tf.cast(tf.less(smoothL1,0.5),tf.float32)
+#     r1 = tf.multiply(tf.square(res_value), smoothL1)*0.5
+#     r2 = tf.multiply((res_value - 0.5), invsmoothL1)       
+#     offset_loss = tf.reduce_sum(tf.add(r1,r2), axis=1)#
 #     
+#     skl_loss = sess.run(kl_loss)
+#     soffset_loss = sess.run(offset_loss)
+#     loss = sess.run(tf.add(kl_loss, offset_loss))
+#     
+#     l_cls = sess.run(label_cls)
+#     p_cls = sess.run(pre_cls)
+
+   
+     
 #     ut.show_results(src,results_old)
 #     cv2.waitKey()
 #     ut.show_results(src,results)
      
-     tp = 0
-     
-     for k in range(49):
-         if np.argmax(l_cls[0,k,:]) == np.argmax(p_cls[0,k,:]):
-             tp =tp + 1
+#     tp = 0
+#     
+#     for k in range(49):
+#         if np.argmax(l_cls[0,k,:]) == np.argmax(p_cls[0,k,:]):
+#             tp =tp + 1
          
 
 
