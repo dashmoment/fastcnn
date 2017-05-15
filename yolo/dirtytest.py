@@ -74,9 +74,13 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
                     if idx == 0:
                         init_layers[i][1][-2] = 50176
                     if idx == 1:
+<<<<<<< HEAD
                         init_layers[i][1][-2] = 47628
                     if idx == 2:
                         init_layers[i][1][-2] = 32095
+=======
+                        init_layers[i][1][-2] = 45129
+>>>>>>> 0fe943237322ffff173e4c32d924c2573e6c6071
                    
           
                 tf.get_variable(init_layers[i][0],init_layers[i][1], initializer=tf.contrib.layers.xavier_initializer())
@@ -91,7 +95,11 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
 
 
 img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/JPEGImages'
+<<<<<<< HEAD
 shrink_ratio = 0.95
+=======
+shrink_ratio = 0.9
+>>>>>>> 0fe943237322ffff173e4c32d924c2573e6c6071
 
 if os.path.isdir(img_root):
 
@@ -105,7 +113,7 @@ var_scope = 'recursive_0'
 
 batch_size = 1
 
-with tf.device('/gpu:1'):
+with tf.device('/gpu:0'):
     classes = voc.list_image_sets()
     val_list = voc.imgs_from_category_as_list('', 'test', labelfiles)
     
@@ -123,6 +131,7 @@ with tf.device('/gpu:1'):
     
     model_ticket={'root':'yolo_tiny', 'branch':'vanilla'}
     init_layers = mu.model_zoo(model_ticket)
+
     var_dict = recursive_create_var('recursive', 3, shrink_ratio, init_layers)
     yolo_ds = nf.glosso_train(var_scope, 'test', x, var_dict, keep_prob, False)  
     
@@ -143,6 +152,7 @@ with tf.device('/gpu:1'):
     tconf_loss =  tf.reduce_sum(tf.multiply(tf.square(tf.subtract(tlabel_conf, pre_conf)), tconf_weight))
     
     tloss = (class_loss + tbias_loss + tconf_loss)/batch_size
+
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
@@ -244,6 +254,7 @@ with tf.Session(config = config) as sess:
      
      label = prob_label_old[0]
      predict = prob_label[0]
+
 
      conf = np.zeros((7,7,2,20))
      rlabel_boxes = np.zeros((7,7,2,4))

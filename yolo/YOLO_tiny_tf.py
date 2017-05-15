@@ -51,7 +51,7 @@ class YOLO_TF:
                 
     def build_networks(self):
 
-        with tf.device('/gpu:1'):
+        with tf.device('/gpu:0'):
 
             if self.disp_console : print ("Building YOLO_tiny graph...")
             self.x = tf.placeholder('float32',[None,448,448,3])
