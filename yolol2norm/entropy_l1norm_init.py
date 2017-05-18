@@ -94,8 +94,8 @@ logfile = '../../log/l1norm_entropy_init0.8'
 
 
 train_type = "RMS"
-continue_training = 0
-epoch_num = 0
+continue_training = 1
+epoch_num = 19
 Nepoch = 200
 batch_size = 64
 save_epoch = 200

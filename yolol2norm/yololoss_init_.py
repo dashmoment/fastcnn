@@ -82,7 +82,7 @@ def getlearningrate(Epoch, loopnum, totalloop):
     return lr
     
 
-def yolo_loss(scope, predict, tvalid_class, tvalid_xy,tvalid_wh, tlabel_xy, tlabel_wh, tconf_weight, tlabel_conf, batch_size):
+def yolo_loss(scope, predict, tvalid_class, tobjbox, tvalid_xy,tvalid_wh, tlabel_xy, tlabel_wh, tconf_weight, tlabel_conf, batch_size):
     
     with tf.name_scope(scope):
         pre_cls = tf.reshape(tf.slice(predict, [0,0],[-1, 980]), (-1,7,7,20))
@@ -91,7 +91,7 @@ def yolo_loss(scope, predict, tvalid_class, tvalid_xy,tvalid_wh, tlabel_xy, tlab
         
         pre_xy, pre_wh = tf.split(pre_offset,2,axis=4)
         
-        class_loss = tf.reduce_sum(tf.square(tf.subtract(tf.multiply(pre_cls, tvalid_class), tvalid_class)))
+        class_loss = tf.reduce_sum(tf.square(tf.subtract(tf.multiply(pre_cls, tobjbox), tvalid_class)))
         
         box_xy_loss = tf.reduce_sum(tf.square(tf.subtract(tf.multiply(pre_xy, tvalid_xy),tlabel_xy)))
         pre_wh_sqrt = tf.sqrt(tf.multiply(pre_wh, tvalid_wh)+1e-4)
@@ -101,7 +101,9 @@ def yolo_loss(scope, predict, tvalid_class, tvalid_xy,tvalid_wh, tlabel_xy, tlab
         
         tconf_loss =  tf.reduce_sum(tf.multiply(tf.square(tf.subtract(tlabel_conf, pre_conf)), tconf_weight))
         tloss = (class_loss + tbias_loss + tconf_loss)/batch_size
-    
+        
+       
+        
     return tloss
 
 
@@ -125,7 +127,7 @@ epoch_num = 0
 Nepoch = 200
 batch_size = 64
 save_epoch = 200
-test_epoch = 500
+test_epoch = 200
 weight_decay = 0.0005
 
 
@@ -155,24 +157,26 @@ with tf.device('/gpu:1'):
     #============Yolo Loss===============
    
     tvalid_class = tf.placeholder(tf.float32,(None,7,7,20), name='class')
+    tobj_box = tf.placeholder(tf.float32,(None,7,7,1), name='obj_box')
+   
     tvalid_xy = tf.placeholder(tf.float32,(None,7,7,2,2), name='xy')
     tvalid_wh = tf.placeholder(tf.float32,(None,7,7,2,2), name='wh')
     tlabel_xy = tf.placeholder(tf.float32,(None,7,7,2,2), name='label_xy')
     tlabel_wh = tf.placeholder(tf.float32,(None,7,7,2,2), name='label_wh')
     tconf_weight = tf.placeholder(tf.float32,(None,7,7,2), name='label_wh')
     tlabel_conf = tf.placeholder(tf.float32,(None,7,7,2), name='label_wh')
-        
+    
     
         
     #==============End of Yolo Loss==================================
     
     glosso_train = nf.glosso_train(varscope, 'train', x, var_dict, keep_prob, True)
-    loss = yolo_loss('train_loss',glosso_train, tvalid_class, tvalid_xy, tvalid_wh, tlabel_xy, tlabel_wh, tconf_weight, tlabel_conf, batch_size)
+    loss = yolo_loss('train_loss',glosso_train, tvalid_class, tobj_box,tvalid_xy, tvalid_wh, tlabel_xy, tlabel_wh, tconf_weight, tlabel_conf, batch_size)
     loss = tf.add(weight_sum, loss)    
     L2_Solver = tf.train.MomentumOptimizer(learning_rate = learning_rate, momentum=0.9).minimize(loss)
     
     glosso_test = nf.glosso_train(varscope, 'test', x, var_dict, keep_prob, False)   
-    tloss = yolo_loss('test_loss', glosso_test, tvalid_class, tvalid_xy, tvalid_wh, tlabel_xy, tlabel_wh, tconf_weight, tlabel_conf, batch_size)
+    tloss = yolo_loss('test_loss', glosso_test, tvalid_class, tobj_box, tvalid_xy, tvalid_wh, tlabel_xy, tlabel_wh, tconf_weight, tlabel_conf, batch_size)
     tloss = tf.add(weight_sum, tloss)
 
 tf.summary.scalar('Train_l2sum',loss,collections=['train'])
@@ -220,7 +224,7 @@ with tf.Session(config = config) as sess:
         shufflelist, data_labels = mu.gnerate_dl_pairs_voc(yolo, index, batch_file, shufflelist, batch_size, (448,448,3))
 
         
-        prob_threshold = 0.1
+        prob_threshold = 0.08
      
      
         rlabel_boxes = np.zeros((7,7,2,4))
@@ -237,6 +241,10 @@ with tf.Session(config = config) as sess:
         valid_class = np.multiply(conf, filter_mat_probs)
         valid_class = np.sum(valid_class, axis=-2)
         valid_class = np.array(valid_class>0,dtype='int')  
+        
+        objbox = np.expand_dims(np.sum(valid_class, axis=-1), 3)
+        objbox = np.array(objbox > 0,dtype='int')  
+        
         
         valid_box = np.multiply(conf, filter_mat_probs)
         valid_box = np.sum(valid_box, axis=-1)
@@ -255,8 +263,8 @@ with tf.Session(config = config) as sess:
         w_nobj = np.array(np.abs(label_conf)==0,dtype='int')
         w = w_obj + 0.5*w_nobj
         
-        feeddict = {x:data_labels['data'], keep_prob:0.5, learning_rate:lr  , tvalid_class:valid_class,  tvalid_xy:valid_xy, tlabel_xy:label_xy,tvalid_wh:valid_wh, tlabel_wh:label_wh, tlabel_conf:label_conf, tconf_weight:w}
-
+        feeddict = {x:data_labels['data'], keep_prob:0.5, learning_rate:lr  , tvalid_class:valid_class,  tobj_box: objbox ,tvalid_xy:valid_xy, tlabel_xy:label_xy,tvalid_wh:valid_wh, tlabel_wh:label_wh, tlabel_conf:label_conf, tconf_weight:w}
+        
         savemodel = False
         if summary_idx%save_epoch == 0: savemodel = True
         mu.train_op(sess, train_type, L2_Solver, loss, feeddict, savemodel, saver, filename, summary, summary_idx)
@@ -282,6 +290,9 @@ with tf.Session(config = config) as sess:
             valid_class = np.sum(valid_class, axis=-2)
             valid_class = np.array(valid_class>0,dtype='int')  
             
+            objbox = np.expand_dims(np.sum(valid_class, axis=-1), 3)
+            objbox = np.array(objbox > 0,dtype='int')  
+            
             valid_box = np.multiply(conf, filter_mat_probs)
             valid_box = np.sum(valid_box, axis=-1)
             valid_box = np.array(valid_box>0,dtype='int')     
@@ -290,7 +301,7 @@ with tf.Session(config = config) as sess:
                 for j in range(4):
                     label_boxes[:,:,:,i,j] = np.multiply(label_boxes[:,:,:,i,j], valid_box[:,:,:,i])
                     
-            tfeeddict = {x:tdata_labels['data'], keep_prob:1  , tvalid_class:valid_class,  tvalid_xy:valid_xy, tlabel_xy:label_xy,tvalid_wh:valid_wh, tlabel_wh:label_wh, tlabel_conf:label_conf, tconf_weight:w}
+            tfeeddict = {x:tdata_labels['data'], keep_prob:1  , tvalid_class:valid_class, tobj_box: objbox, tvalid_xy:valid_xy, tlabel_xy:label_xy,tvalid_wh:valid_wh, tlabel_wh:label_wh, tlabel_conf:label_conf, tconf_weight:w}
         
             mu.test_op(sess, train_type, tloss, tfeeddict, summary, summary_idx)
 

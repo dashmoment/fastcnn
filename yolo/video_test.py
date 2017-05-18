@@ -2,16 +2,16 @@ import tensorflow as tf
 import numpy as np
 import yolo_netfactory as nf
 import random_batch as rb
-import YOLO_tiny_tf
 import cv2
 import voc_utils as voc
 import os
 import utility as ut
-from bs4 import BeautifulSoup as soup
 import model_utility as mut
 import time
 import model_utility as mu
 import matplotlib.pyplot as plt
+import YOLO_tiny_tf
+
 
 def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
     
@@ -59,18 +59,20 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
 
 
 
+
 img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/JPEGImages'
 labelfiles = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/ImageSets/Main'
 checkpoint_dir = '../../model/l1norm_entropy_init0.8'
 classes = voc.list_image_sets()
 val_list = voc.imgs_from_category_as_list('', 'test', labelfiles)
 
-yolo_old = YOLO_tiny_tf.YOLO_TF()
 varscope = 'recursive_1'
 shrinkratio = 0.8
 
+#yolo_old = YOLO_tiny_tf.YOLO_TF()
+
 with tf.device('/gpu:0'):
-#Vanilla YOLO_tiny Weight
+
     x = tf.placeholder(tf.float32,(None,448,448,3))
     label = tf.placeholder(tf.float32,(None,1470), name='labels')
     keep_prob = tf.placeholder(tf.float32)
@@ -81,109 +83,63 @@ with tf.device('/gpu:0'):
     yolo_ds = nf.glosso_train(varscope, 'test', x, var_dict, keep_prob, False)
 
 
-    tlossTicket = {'loss':'smoothL1'}
-    loss_pair = {'prob':yolo_ds}
-    loss = mu.loss_zoo(tlossTicket, loss_pair, label)
-
-
-tp = 0
-fp = 0
-
-tp_old = 0
-fp_old = 0
-
-num = 0
-idx = 1
-elapse = 0
-elapse_old = 0
-
-
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
-
-val_name = val_list[1100]
 
 with tf.Session(config = config) as sess:
     
     resaver = tf.train.Saver()
     resaver.restore(sess, tf.train.latest_checkpoint(checkpoint_dir))
-#    c2 = sess2.run(ds_yolo["conv2w"])
     
-#    for val_name in val_list:
-    if val_name != []:
+    
+    cap = cv2.VideoCapture(0)
+
+    while(True):
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+
+        h_img, w_img,_ = frame.shape
+        img_resized = cv2.resize(frame, (448, 448))
+        img_RGB = cv2.cvtColor(img_resized,cv2.COLOR_BGR2RGB)
+        img_resized_np = np.asarray( img_RGB )
         
-        fpath = os.path.join(img_root,val_name+'.jpg')
-        w,h,inputs = ut.vocimg_preprocess(fpath)
-        src = cv2.imread(fpath)
-          
-        num = num + ut.calc_objec_num(val_name)
-        print("Test File:{}/{}".format(idx,len(val_list)))
-        idx = idx + 1
-        
-        
-       
+        res = np.zeros((1,448,448,3),dtype='float32')
+        res[0] = (img_resized_np/255.0)*2.0-1.0
+
         s = time.clock()
-        prob_label_old = yolo_old.sess.run(yolo_old.fc_19, feed_dict={yolo_old.x:inputs})
+        prob_label = sess.run(yolo_ds,feed_dict={x:res, keep_prob:1})
+        #prob_label = yolo_old.sess.run(yolo_old.fc_19, feed_dict={yolo_old.x:res})
         e = time.clock()
-        elapse_old = elapse_old + e - s
-        
-        results_old = ut.interpret_output(prob_label_old[0],w,h)
+        elapse = e-s
 
-        for i in range(len(results_old)):
-            
-            tbb_old = ut.cov_yoloBB2VOC(results_old[i])
-            res_old = ut.eval_by_obj(val_name, tbb_old, 0.5)
-            
-            if(res_old == 1): tp_old = tp_old +1
-            if(res_old == -1): fp_old = fp_old +1
-        
+        results = ut.interpret_output(prob_label[0],w_img,h_img)
 
-        
-        s = time.clock()
-        prob_label = sess.run(yolo_ds,feed_dict={x:inputs, keep_prob:1})
-        e = time.clock()
-        elapse = elapse + e-s
-
-        
-        
-        results = ut.interpret_output(prob_label[0],w,h)
-        for i in range(len(results)):
-            
-            tbb = ut.cov_yoloBB2VOC(results[i])
-            res = ut.eval_by_obj(val_name, tbb, 0.5)
-            
-            if(res == 1): tp = tp +1
-            if(res == -1): fp = fp +1
-        
-        feeddict={x: inputs , label:prob_label_old}
-        print(sess.run(loss,feed_dict=feeddict))
+        print(elapse)
        
-    print("Old Avg Elapse:{}".format(elapse_old/idx)) 
-    print("Old Accuracy:{}".format(tp_old/num))
-    
-    print("New Avg Elapse:{}".format(elapse/idx)) 
-    print("New Accuracy:{}".format(tp/num)) 
-        
-    
-    
-    ut.show_results(src,results_old)
-    cv2.waitKey()
-    ut.show_results(src,results)
-    
+        ut.show_results(frame, results, 1/elapse)
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-        
-        
-        
-        
+       
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

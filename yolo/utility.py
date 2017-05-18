@@ -202,9 +202,9 @@ def interpret_output(intputs,w_img, h_img):
         return result
 
 
-def show_results(img,results):
+def show_results(img,results, fps = 0):
         img_cp = img.copy()
-       
+        cv2.putText( img_cp, 'FPS : %.2f' % fps,(20,50),cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,0),1)
         for i in range(len(results)):
             x = int(results[i][1])
             y = int(results[i][2])
@@ -215,6 +215,7 @@ def show_results(img,results):
             cv2.rectangle(img_cp,(x-w,y-h-20),(x+w,y-h),(125,125,125),-1)
             cv2.putText(img_cp,results[i][0] + ' : %.2f' % results[i][5],(x-w+5,y-h-7),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),1)
             
+            
         cv2.imshow('YOLO_tiny detection',img_cp)
-        cv2.waitKey(1000)
+        cv2.waitKey(10)
        
