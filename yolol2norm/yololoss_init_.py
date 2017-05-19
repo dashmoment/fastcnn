@@ -15,8 +15,6 @@ import YOLO_tiny_tf
 import numpy as np
 
 
-
-
 def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
     
     scope_dict = {}
@@ -48,7 +46,6 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
                     if idx == 0:
                         init_layers[i][1][-2] = 50176
                     if idx == 1:
-
                         init_layers[i][1][-2] = 40131
                     if idx == 2:
                         init_layers[i][1][-2] = 32095
@@ -61,7 +58,6 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
         scope_dict[scope_name] = name_dict 
 
     return scope_dict
-
 
 
 def get_graph_var():
@@ -120,18 +116,18 @@ else:
     batch_file = "/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012/JPEGImages"
     test_file = batch_file
     
-filename = "../../model/test/fcann_v1.ckpt"
-checkpoint_dir = '../../model/test'
-logfile = '../../log/test'
+filename = "../../model/yololoss_init_0.8/fcann_v1.ckpt"
+checkpoint_dir = '../../model/yololoss_init_0.8'
+logfile = '../../log/yololoss_init_0.8'
 
 
 train_type = "RMS"
-continue_training = 0
-epoch_num = 0
+continue_training = 1
+epoch_num = 1
 Nepoch = 200
 batch_size = 64
 save_epoch = 200
-test_epoch = 500
+test_epoch = 200
 weight_decay = 0.0005
 
 
@@ -150,7 +146,6 @@ with tf.device('/gpu:1'):
 
     model_ticket = {'root':'yolo_tiny', 'branch':'vanilla'}
     init_layers = mu.model_zoo(model_ticket)
-
     var_dict = recursive_create_var('recursive', 2, shrinkratio, init_layers)
     var_list = var_dict[varscope]
 
@@ -171,7 +166,7 @@ with tf.device('/gpu:1'):
     tconf_weight = tf.placeholder(tf.float32,(None,7,7,2), name='label_wh')
     tlabel_conf = tf.placeholder(tf.float32,(None,7,7,2), name='label_wh')
     
-
+    
         
     #==============End of Yolo Loss==================================
     
@@ -191,15 +186,12 @@ tf.summary.scalar('Test_l2sum',tloss,collections=['test'])
 merged_summary_train = tf.summary.merge_all('train')
 merged_summary_test= tf.summary.merge_all('test')
 
-var_scope = 'recursive_1'
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
 
 with tf.Session(config = config) as sess:
     
-
- 
     summary_writer = tf.summary.FileWriter(logfile, sess.graph)  
     summary = {'writer':summary_writer, 'train':merged_summary_train, 'test':merged_summary_test} 
     saver = tf.train.Saver()    
@@ -233,12 +225,8 @@ with tf.Session(config = config) as sess:
 
         
         prob_threshold = 0.08
-
      
-     results_old = ut.interpret_output(prob_label_old[0],w,h)
-     results = ut.interpret_output(prob_label[0],w,h)
      
-
         rlabel_boxes = np.zeros((7,7,2,4))
         label_probs = np.reshape(data_labels['label'][:,0:980],(-1,7,7,20))
         label_scales = np.reshape(data_labels['label'][:,980:1078],(-1,7,7,2))
@@ -319,7 +307,6 @@ with tf.Session(config = config) as sess:
 
 
     
-
 
 
 

@@ -24,26 +24,36 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
         with tf.variable_scope(scope_name):
             
             name_dict = []
+            
             for i in range(len(init_layers)):
 
                 shape = init_layers[i][1]
                 
-                if idx >= 0: 
+                if idx >= 1: 
                                        
                     if i > 0 and len(shape)  > 1 : shape[-2] = int(init_layers[i-1][1][-1])
                     
-                    shape[-1] = int(init_layers[i][1][-1] - reduce_percent*(init_layers[i][1][-1]))
+                    shape[-1] = int(init_layers[i][1][-1]*reduce_percent)
+                    
+                    
                 init_layers[i][1] = shape
                 
                 if init_layers[i][0] == 'fc12w':  init_layers[i][1][-1] = 1470
                 if init_layers[i][0] == 'fc12b':  init_layers[i][1][-1] = 1470          
-                if init_layers[i][0] == 'fc10w' and idx == 0:
-                    init_layers[i][1][-2] = 40131
+                if init_layers[i][0] == 'fc10w':
+                
+                    if idx == 0:
+                        init_layers[i][1][-2] = 50176
+                    if idx == 1:
+                        init_layers[i][1][-2] = 40131
+                    if idx == 2:
+                        init_layers[i][1][-2] = 32095
                    
           
                 tf.get_variable(init_layers[i][0],init_layers[i][1], initializer=tf.contrib.layers.xavier_initializer())
 
                 name_dict.append(init_layers[i][0])
+                
         scope_dict[scope_name] = name_dict 
 
     return scope_dict
@@ -55,17 +65,17 @@ def get_graph_var():
     
     
     
-def getlearningrate(Epoch):
+def getlearningrate(Epoch, loopnum, totalloop):
     
     lr = 1e-3
     
-    if Epoch < 10:
-        lr = 1e-3 + (1e-2-1e-3)*Epoch/10
-    elif Epoch >= 10 and Epoch < 30:
+    if Epoch < 1:
+        lr = 1e-3 + (1e-2-1e-3)*loopnum/totalloop
+    elif Epoch >= 1 and Epoch < 75:
         lr = 1e-2
-    elif Epoch >= 30 and Epoch < 60:
+    elif Epoch >= 75 and Epoch < 105:
         lr = 1e-3
-    elif Epoch >= 60:
+    elif Epoch >= 105:
         lr = 1e-4
         
     return lr
@@ -78,21 +88,25 @@ else:
     batch_file = "/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012/JPEGImages"
     test_file = batch_file
     
-filename = "../../model/l1norm_entropy/fcann_v1.ckpt"
-logfile = '../../log/l1norm_entropy'
-checkpoint_dir = '../../model/l1norm_entropy'
+filename = "../../model/l1norm_entropy_init0.8/fcann_v1.ckpt"
+checkpoint_dir = '../../model/l1norm_entropy_init0.8'
+logfile = '../../log/l1norm_entropy_init0.8'
+
 
 train_type = "RMS"
 continue_training = 1
-epoch_num = 53
+epoch_num = 19
 Nepoch = 200
 batch_size = 64
 save_epoch = 200
-test_epoch = 500
+test_epoch = 200
 weight_decay = 0.0005
 
 
 yolo = YOLO_tiny_tf.YOLO_TF()
+varscope = 'recursive_1'
+shrinkratio = 0.8
+
 
 with tf.device('/gpu:0'):
     
@@ -105,17 +119,17 @@ with tf.device('/gpu:0'):
 
     model_ticket = {'root':'yolo_tiny', 'branch':'vanilla'}
     init_layers = mu.model_zoo(model_ticket)
-    var_dict = recursive_create_var('recursive', 1, 0.2, init_layers)
-    var_list = var_dict['recursive_0']
+    var_dict = recursive_create_var('recursive', 2, shrinkratio, init_layers)
+    var_list = var_dict[varscope]
 
     with tf.name_scope('Weight_sum'):
-        with tf.variable_scope('recursive_0') as scope:
+        with tf.variable_scope(varscope) as scope:
             scope.reuse_variables()
             weight_sum = tf.reduce_sum([0.5*tf.reduce_sum(tf.square(tf.get_variable(x)*weight_decay)) for x in var_list])
             w1 = tf.get_variable(var_list[0])
 
     
-    glosso_train = nf.glosso_train("recursive_0", 'train', x, var_dict, keep_prob, True)
+    glosso_train = nf.glosso_train(varscope, 'train', x, var_dict, keep_prob, True)
     
     
     lossTicket = {'loss':'yolo_kl_l1'}
@@ -125,12 +139,13 @@ with tf.device('/gpu:0'):
 
 
     tlossTicket = {'loss':'yolo_kl_l1'}
-    glosso_test = nf.glosso_train("recursive_0", 'test', x, var_dict, keep_prob, False)
+    glosso_test = nf.glosso_train(varscope, 'test', x, var_dict, keep_prob, False)
     tloss_pair = {'prob':glosso_test, 'gloss':weight_sum}
     tloss = mu.loss_zoo(tlossTicket, tloss_pair, tlabel)  
 
 
 tf.summary.scalar('Train_l2sum',loss,collections=['train'])
+tf.summary.scalar('learning_rate',learning_rate,collections=['train'])
 tf.summary.scalar('Test_l2sum',tloss,collections=['test'])
 
 merged_summary_train = tf.summary.merge_all('train')
@@ -154,18 +169,18 @@ with tf.Session(config = config) as sess:
         
     else:
         sess.run(tf.global_variables_initializer())  
-        
-        
+        mu.weight_pruning_ind(yolo, sess, var_dict, varscope)
 
+        
     for epoch in range(epoch_num,Nepoch):
 
       print("Start Epoch:{}".format(epoch))
 
       shufflelist = []
-      lr = getlearningrate(epoch)
       
-
       for i in range(0,len(os.listdir(batch_file))//batch_size):
+
+        lr = getlearningrate(epoch,i,len(os.listdir(batch_file))//batch_size)
           
         summary_idx = len(os.listdir(batch_file))//batch_size*epoch + i
         print("Epoch:{}, Iteration:{}".format(epoch, summary_idx))
@@ -183,7 +198,7 @@ with tf.Session(config = config) as sess:
         if summary_idx%test_epoch == 0:
 
             tdata_labels = mu.gnerate_dl_pairs(yolo, test_file, batch_size, (448,448,3))
-            tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:0.5}
+            tfeeddict = {x:tdata_labels['data'], tlabel:tdata_labels['label'], keep_prob:1}
             mu.test_op(sess, train_type, tloss, tfeeddict, summary, summary_idx)
 
 #******************Test Code **********************
