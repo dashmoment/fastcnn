@@ -123,7 +123,7 @@ logfile = '../../log/yololoss_init_0.8'
 
 train_type = "RMS"
 continue_training = 1
-epoch_num = 1
+epoch_num = 24
 Nepoch = 200
 batch_size = 64
 save_epoch = 200

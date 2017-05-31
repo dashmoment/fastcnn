@@ -61,7 +61,7 @@ def recursive_create_var(scope, Nlayers, reduce_percent, init_layers):
 
 img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/JPEGImages'
 labelfiles = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/ImageSets/Main'
-checkpoint_dir = '../../model/l1norm_entropy_init0.8'
+checkpoint_dir = '../../model/yololoss_init_0.8'
 classes = voc.list_image_sets()
 val_list = voc.imgs_from_category_as_list('', 'test', labelfiles)
 
@@ -96,12 +96,13 @@ num = 0
 idx = 1
 elapse = 0
 elapse_old = 0
+iou_threshold = 0.2
 
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
 
-val_name = val_list[1100]
+val_name = val_list[500]
 
 with tf.Session(config = config) as sess:
     
@@ -109,8 +110,8 @@ with tf.Session(config = config) as sess:
     resaver.restore(sess, tf.train.latest_checkpoint(checkpoint_dir))
 #    c2 = sess2.run(ds_yolo["conv2w"])
     
-#    for val_name in val_list:
-    if val_name != []:
+    for val_name in val_list:
+#    if val_name != []:
         
         fpath = os.path.join(img_root,val_name+'.jpg')
         w,h,inputs = ut.vocimg_preprocess(fpath)
@@ -132,7 +133,7 @@ with tf.Session(config = config) as sess:
         for i in range(len(results_old)):
             
             tbb_old = ut.cov_yoloBB2VOC(results_old[i])
-            res_old = ut.eval_by_obj(val_name, tbb_old, 0.5)
+            res_old = ut.eval_by_obj(val_name, tbb_old, iou_threshold)
             
             if(res_old == 1): tp_old = tp_old +1
             if(res_old == -1): fp_old = fp_old +1
@@ -150,7 +151,7 @@ with tf.Session(config = config) as sess:
         for i in range(len(results)):
             
             tbb = ut.cov_yoloBB2VOC(results[i])
-            res = ut.eval_by_obj(val_name, tbb, 0.5)
+            res = ut.eval_by_obj(val_name, tbb, iou_threshold)
             
             if(res == 1): tp = tp +1
             if(res == -1): fp = fp +1

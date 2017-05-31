@@ -85,10 +85,13 @@ def eval_by_obj(imgname, testBB, iou_threshold):
         ymax = float(item.ymax.contents[0])
         
         tmp = [xmin, ymin, xmax, ymax,class_name]
+        
+        
         BB.append(tmp)
 
 
-
+#    print(BB)
+#    print(testBB)
     match = matchBB(testBB, BB, iou_threshold)
 
     return match
@@ -99,11 +102,12 @@ def matchBB(testBB, gtBB, iou_threshold): #box = [xmin, ymin, xmax,ymax]
 
     for gtbb in gtBB:
 
-        #print("iou:{}".format(iou_new(testBB, gtbb)))
+#        print("iou:{}".format(iou_new(testBB, gtbb)))
 
         if iou_new(testBB, gtbb) > iou_threshold and testBB[4] == gtbb[4]:
 
             match = 1
+            break;
         else:
             match = -1
         
