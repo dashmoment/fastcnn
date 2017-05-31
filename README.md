@@ -24,6 +24,14 @@ Accuracy: 0.440705
 
 Elapse time: 0.02773 sec
 
+###iou > 0.2
+
+
+Accuracy: 0.469017
+
+Elapse time: 0.029657 sec
+
+
 ## model 1
 
 init: Yes
@@ -68,6 +76,15 @@ Elapse Time: 0.008594
 Accuracy: 0.405582
 
 Elapse time: 0.0092743 sec
+
+
+###iou > 0.2
+
+
+Accuracy: 0.436231
+
+Elapse time: 0.009870 sec
+
 
 
 
