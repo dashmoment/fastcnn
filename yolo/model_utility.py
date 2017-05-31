@@ -3,6 +3,35 @@ import numpy as np
 import random_batch as rb
 import math
 
+key_pairs = {
+            'conv1w':'Variable',
+            'conv1b':'Variable_1',
+            'conv2w':'Variable_2',
+            'conv2b':'Variable_3',
+            'conv3w':'Variable_4',
+            'conv3b':'Variable_5',
+            'conv4w':'Variable_6',
+            'conv4b':'Variable_7',
+            'conv5w':'Variable_8',
+            'conv5b':'Variable_9',
+            'conv6w':'Variable_10',
+            'conv6b':'Variable_11',
+            'conv7w':'Variable_12',
+            'conv7b':'Variable_13',
+            'conv8w':'Variable_14',
+            'conv8b':'Variable_15',
+            'conv9w':'Variable_16',
+            'conv9b':'Variable_17',
+            'fc10w':'Variable_18',
+            'fc10b':'Variable_19',
+            'fc11w':'Variable_20',
+            'fc11b':'Variable_21',
+            'fc12w':'Variable_22',
+            'fc12b':'Variable_23',
+            
+            }
+
+
 def GAN_vanilla(d_real_logit,d_fake_logit,d_real_prob,d_fake_prob):
 
     d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_real_logit, labels=tf.ones_like(d_real_logit)))
@@ -319,4 +348,118 @@ def quickSummary2(key_data):
     tf.summary.scalar('Test_Group_loss',key_data['Test_Group_loss'],collections='test')
 
    
+def weight_pruning(yolo_obj, sess, var_dict, var_scope):
+    
+    for var in var_dict[var_scope]:
+        tensors = yolo_obj.sess.run(tf.get_default_graph().get_tensor_by_name(key_pairs[var]+':0'))
+        
+        with tf.variable_scope(var_scope) as scope:
+            scope.reuse_variables() 
+            tensors_s =  sess.run(tf.get_variable(var))
+              
+        if np.shape(tensors) != np.shape(tensors_s):
+                        
+                if (len(np.shape(tensors))) > 1:
+                
+                    if (len(np.shape(tensors))) > 2:                         
+                        dim_sum = np.sum(np.sum(np.sum(tensors, axis=0),axis=0), axis=1)
+                    else:
+                        dim_sum = np.sum(tensors, axis=1)
+                    
+                    dim_sum = np.abs(dim_sum)
+                    dim_sort = np.unravel_index(dim_sum.argsort(axis=None), dims=int(len(dim_sum)))
+                    del_list = [dim_sort[0][x] for x in range(np.shape(tensors)[-2] -  np.shape(tensors_s)[-2])]
+                    
+                    dim_array = np.delete(tensors,del_list, -2)
+                    
+                    if (len(np.shape(tensors))) > 2:        
+                        kernel_sum = np.sum(np.sum(np.sum(dim_array,axis=0), axis=0),axis=0)
+                    else:
+                        kernel_sum = np.sum(dim_array, axis=0)
+                    
+                    kernel_sum = np.abs(kernel_sum)
+                    kernel_sort = np.unravel_index(kernel_sum.argsort(axis=None), dims=int(len(kernel_sum)))
+                    kdel_list = [kernel_sort[0][x] for x in range(np.shape(tensors)[-1] -  np.shape(tensors_s)[-1])]
+                    kernel_array = np.delete(dim_array, kdel_list, -1)
+                
+                else:
+                    kernel_array = np.delete(tensors, kdel_list,0)
+                
+        else:
+            kernel_array = tensors
+
+    
+        with tf.variable_scope(var_scope) as scope:
+                scope.reuse_variables() 
+                op = tf.assign(tf.get_variable(var), kernel_array)
+                sess.run(op)
+                tensors_s =  sess.run(tf.get_variable(var))
+                
+                
+                
+def weight_pruning_ind(yolo_obj, sess, var_dict, var_scope):
+    
+    for var in var_dict[var_scope]:
+         tensors = yolo_obj.sess.run(tf.get_default_graph().get_tensor_by_name(key_pairs[var]+':0'))
+    
+         with tf.variable_scope(var_scope) as scope:
+            scope.reuse_variables() 
+            tensors_s =  sess.run(tf.get_variable(var))
+              
+         if np.shape(tensors) != np.shape(tensors_s):
+         
+             
+             if (len(np.shape(tensors))) > 1:
+            
+                if (len(np.shape(tensors))) > 2:     
+
+                    dim_array = np.zeros((np.shape(tensors_s)[0],np.shape(tensors_s)[1],np.shape(tensors_s)[2],np.shape(tensors)[3]), dtype=np.float32)                    
+                    dim_sum = np.sum(np.sum(tensors, axis=0),axis=0)
+                    dim_sum = np.abs(dim_sum)
+                    
+                    del_axis = []
+                    
+                    for i in range(dim_sum.shape[1]):
+                        axis_sum = dim_sum[:,i]
+                        axis_sort = np.unravel_index(axis_sum.argsort(axis=None), dims=int(len(axis_sum)))
+                        del_axis = [axis_sort[0][x] for x in range(np.shape(tensors)[-2] -  np.shape(tensors_s)[-2])]
+                        tmp = tensors[:,:,:,i]
+                        stmp = np.delete(tmp,del_axis, -1)
+                        dim_array[:,:,:,i] = stmp
+                        
+                        
+                else:  
+                     
+                     dim_sum = np.sum(tensors, axis=1)
+                     dim_sum = np.abs(dim_sum)
+                     dim_sort = np.unravel_index(dim_sum.argsort(axis=None), dims=int(len(dim_sum)))
+                     del_list = [dim_sort[0][x] for x in range(np.shape(tensors)[-2] -  np.shape(tensors_s)[-2])]
+                     dim_array = np.delete(tensors,del_list, -2)
+                     
+                     
+                if (len(np.shape(tensors))) > 2:        
+                        kernel_sum = np.sum(np.sum(np.sum(dim_array,axis=0), axis=0),axis=0)
+                else:
+                        kernel_sum = np.sum(dim_array, axis=0)
+                    
+                kernel_sum = np.abs(kernel_sum)
+                kernel_sort = np.unravel_index(kernel_sum.argsort(axis=None), dims=int(len(kernel_sum)))
+                kdel_list = [kernel_sort[0][x] for x in range(np.shape(tensors)[-1] -  np.shape(tensors_s)[-1])]
+                kernel_array = np.delete(dim_array, kdel_list, -1)
+                
+             else:
+                kernel_array = np.delete(tensors, kdel_list,0)
+                
+       
+         else:   
+             kernel_array = tensors
+
+    
+         with tf.variable_scope(var_scope) as scope:
+             scope.reuse_variables() 
+             op = tf.assign(tf.get_variable(var), kernel_array)
+             sess.run(op)
+             tensors_s = sess.run(tf.get_variable(var)) 
+
+
 

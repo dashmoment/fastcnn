@@ -6,7 +6,7 @@ import os
 import utility as ut
 
 
-def init_yolo_weight(sess,yolo_cls, ds_yolo):
+def init_yolo_weight(sess, yolo ,ds_yolo):
     
     key_pairs = {
             'conv1w':'Variable',
@@ -85,10 +85,13 @@ def eval_by_obj(imgname, testBB, iou_threshold):
         ymax = float(item.ymax.contents[0])
         
         tmp = [xmin, ymin, xmax, ymax,class_name]
+        
+        
         BB.append(tmp)
 
 
-
+#    print(BB)
+#    print(testBB)
     match = matchBB(testBB, BB, iou_threshold)
 
     return match
@@ -99,11 +102,12 @@ def matchBB(testBB, gtBB, iou_threshold): #box = [xmin, ymin, xmax,ymax]
 
     for gtbb in gtBB:
 
-        #print("iou:{}".format(iou_new(testBB, gtbb)))
+#        print("iou:{}".format(iou_new(testBB, gtbb)))
 
         if iou_new(testBB, gtbb) > iou_threshold and testBB[4] == gtbb[4]:
 
             match = 1
+            break;
         else:
             match = -1
         
@@ -202,9 +206,9 @@ def interpret_output(intputs,w_img, h_img):
         return result
 
 
-def show_results(img,results):
+def show_results(img,results, fps = 0):
         img_cp = img.copy()
-       
+        cv2.putText( img_cp, 'FPS : %.2f' % fps,(20,50),cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,0),1)
         for i in range(len(results)):
             x = int(results[i][1])
             y = int(results[i][2])
@@ -215,6 +219,7 @@ def show_results(img,results):
             cv2.rectangle(img_cp,(x-w,y-h-20),(x+w,y-h),(125,125,125),-1)
             cv2.putText(img_cp,results[i][0] + ' : %.2f' % results[i][5],(x-w+5,y-h-7),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),1)
             
+            
         cv2.imshow('YOLO_tiny detection',img_cp)
-        cv2.waitKey(1000)
+        cv2.waitKey(10)
        

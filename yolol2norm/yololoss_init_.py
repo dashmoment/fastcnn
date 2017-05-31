@@ -116,18 +116,18 @@ else:
     batch_file = "/home/dashmoment/workspace/dataset/VOCdevkit/VOC2012/JPEGImages"
     test_file = batch_file
     
-filename = "../../model/test/fcann_v1.ckpt"
-checkpoint_dir = '../../model/test'
-logfile = '../../log/test'
+filename = "../../model/yololoss_init_0.8/fcann_v1.ckpt"
+checkpoint_dir = '../../model/yololoss_init_0.8'
+logfile = '../../log/yololoss_init_0.8'
 
 
 train_type = "RMS"
-continue_training = 0
-epoch_num = 0
+continue_training = 1
+epoch_num = 24
 Nepoch = 200
 batch_size = 64
 save_epoch = 200
-test_epoch = 500
+test_epoch = 200
 weight_decay = 0.0005
 
 
