@@ -95,7 +95,7 @@ logfile = '../../log/l1norm_entropy_init0.8'
 
 train_type = "RMS"
 continue_training = 1
-epoch_num = 20
+epoch_num = 30
 Nepoch = 200
 batch_size = 64
 save_epoch = 200
@@ -108,7 +108,7 @@ varscope = 'recursive_1'
 shrinkratio = 0.8
 
 
-with tf.device('/gpu:0'):
+with tf.device('/gpu:0  '):
     
     keep_prob = tf.placeholder(tf.float32, name='dropout_prob')
     x = tf.placeholder(tf.float32,(None,448,448,3), name='input_batch')
