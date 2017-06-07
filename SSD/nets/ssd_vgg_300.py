@@ -581,7 +581,7 @@ def ssd_losses(logits, localisations,
                negative_ratio=3.,
                alpha=1.,
                label_smoothing=0.,
-               device='/cpu:0',
+               device='/gpu:1',
                scope=None):
     with tf.name_scope(scope, 'ssd_losses'):
         lshape = tfe.get_shape(logits[0], 5)

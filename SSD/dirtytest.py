@@ -20,71 +20,7 @@ from nets import custom_layers
 
 import utility as ut
 import vanilla_ssd as van
- 
-
-
-def plt_bboxes(img, classes, scores, bboxes, figsize=(10,10), linewidth=1.5):
-    """Visualize bounding boxes. Largely inspired by SSD-MXNET!
-    """
-    plt.imshow(img)
-    height = img.shape[0]
-    width = img.shape[1]
-    colors = dict()
-    for i in range(classes.shape[0]):
-        cls_id = int(classes[i])
-        if cls_id >= 0:
-            score = scores[i]
-            if cls_id not in colors:
-                colors[cls_id] = (random.random(), random.random(), random.random())
-            ymin = int(bboxes[i, 0] * height)
-            xmin = int(bboxes[i, 1] * width)
-            ymax = int(bboxes[i, 2] * height)
-            xmax = int(bboxes[i, 3] * width)
-            rect = plt.Rectangle((xmin, ymin), xmax - xmin,
-                                 ymax - ymin, fill=False,
-                                 edgecolor=colors[cls_id],
-                                 linewidth=linewidth)
-            plt.gca().add_patch(rect)
-            class_name = str(cls_id)
-            plt.gca().text(xmin, ymin - 2,
-                           '{:s} | {:.3f}'.format(class_name, score),
-                           bbox=dict(facecolor=colors[cls_id], alpha=0.5),
-                           fontsize=12, color='white')
-    plt.show()
-
-
-
-#default_params = SSDParams(
-#        img_shape=(300, 300),
-#        num_classes=21,
-#        no_annotation_label=21,
-#        feat_layers=['block4', 'block7', 'block8', 'block9', 'block10', 'block11'],
-#        feat_shapes=[(38, 38), (19, 19), (10, 10), (5, 5), (3, 3), (1, 1)],
-#        anchor_size_bounds=[0.15, 0.90],
-#        # anchor_size_bounds=[0.20, 0.90],
-#        anchor_sizes=[(21., 45.),
-#                      (45., 99.),
-#                      (99., 153.),
-#                      (153., 207.),
-#                      (207., 261.),
-#                      (261., 315.)],
-#        # anchor_sizes=[(30., 60.),
-#        #               (60., 111.),
-#        #               (111., 162.),
-#        #               (162., 213.),
-#        #               (213., 264.),
-#        #               (264., 315.)],
-#        anchor_ratios=[[2, .5],
-#                       [2, .5, 3, 1./3],
-#                       [2, .5, 3, 1./3],
-#                       [2, .5, 3, 1./3],
-#                       [2, .5],
-#                       [2, .5]],
-#        anchor_steps=[8, 16, 32, 64, 100, 300],
-#        anchor_offset=0.5,
-#        normalizations=[20, -1, -1, -1, -1, -1],
-#        prior_scaling=[0.1, 0.1, 0.2, 0.2]
-#        )
+import ssd_shrink_network as ssd_s
 
 img_shape=(300, 300)
 num_classes=21
@@ -99,12 +35,7 @@ anchor_sizes=[(21., 45.),
               (153., 207.),
               (207., 261.),
               (261., 315.)]
-# anchor_sizes=[(30., 60.),
-#               (60., 111.),
-#               (111., 162.),
-#               (162., 213.),
-#               (213., 264.),
-#               (264., 315.)],
+
 anchor_ratios=[[2, .5],
                [2, .5, 3, 1./3],
                [2, .5, 3, 1./3],
@@ -116,7 +47,6 @@ anchor_offset=0.5
 normalizations=[20, -1, -1, -1, -1, -1]
 prior_scaling=[0.1, 0.1, 0.2, 0.2]
 prediction_fn=slim.softmax
-
 
 init_layers = {
             'conv1/conv1_1/weights':64,
@@ -166,26 +96,6 @@ init_layers = {
             'block11/conv3x3/weights':256,
             'block11/conv3x3/biases':256
         }
-
-dropout_keep_prob = 0.5
-reuse = True
-is_training = True
-scope  = 'test'
-
-ratio = 0.8
-
-# Input placeholder.
-net_shape = (300, 300)
-data_format = 'NHWC'
-img_input = tf.placeholder(tf.uint8, shape=(None, None, 3))
-# Evaluation pre-processing: resize to SSD net shape.
-image_pre, labels_pre, bboxes_pre, bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
-    img_input, None, None, net_shape, data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
-image_4d = tf.expand_dims(image_pre, 0)
-
-
-reuse = True if 'ssd_net3' in locals() else None
-ssd_net3 = ssd_vgg_300.SSDNet()
 
 
 def creat_network(scope, ratio, inputs, ssd_obj):
@@ -265,57 +175,70 @@ def creat_network(scope, ratio, inputs, ssd_obj):
                 
             return predictions, localisations, logits, end_points
 
-creat_network('test3', 0.64, image_4d, ssd_net3)
+
+dropout_keep_prob = 0.5
+reuse = None
+is_training = True
+scope_name  = 'test'
+
+ratio = 0.8
+
+v = van.vanilla_ssd_net()
+s = ssd_s.ssd_shrink_network(scope_name, ratio)
+
+
+# Input placeholder.
+net_shape = (300, 300)
+data_format = 'NHWC'
+img_input = tf.placeholder(tf.uint8, shape=(None, None, 3))
+# Evaluation pre-processing: resize to SSD net shape.
+image_pre, labels_pre, bboxes_pre, bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
+    img_input, None, None, net_shape, data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
+image_4d = tf.expand_dims(image_pre, 0)
+
+for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
+            print (i.name)
+
+
+ssd_s.model_prunning('ssd_300_vgg', scope_name, v,s)
+#creat_network(scope_name, ratio , image_4d, ssd_net)
 ##Define the SSD model.
 
 
-gpu_options = tf.GPUOptions(allow_growth=True)
-config = tf.ConfigProto(log_device_placement=False, gpu_options=gpu_options)
-isess = tf.InteractiveSession(config=config)
+#gpu_options = tf.GPUOptions(allow_growth=True)
+#config = tf.ConfigProto(log_device_placement=False, gpu_options=gpu_options)
+#isess = tf.InteractiveSession(config=config)
+#isess.run(tf.global_variables_initializer())
 
+####-------------Prunung Weight Test-------------------
 
-ut.show_all_variable()
-
-
-#Restore SSD model.
-ckpt_filename = '/home/ubuntu/workspace/fastcnn/model/SSD_300/ssd_300_vgg.ckpt'
-#ckpt_filename = '../checkpoints/VGG_VOC0712_SSD_300x300_ft_iter_120000.ckpt'
-isess.run(tf.global_variables_initializer())
-saver = tf.train.Saver()
-saver.restore(isess, ckpt_filename)
-
-#v = isess.run(var_23)
-
-with tf.variable_scope('test3') as scope:
+with tf.variable_scope(scope_name) as scope:
     scope.reuse_variables()
-    va = tf.get_variable('block10/conv3x3/weights')
+    va = tf.get_variable('block8/conv1x1/weights')
     
-v2 = isess.run(va)
+tensors_s = s.sess.run(va)
+with tf.variable_scope('ssd_300_vgg') as scope:
+    scope.reuse_variables()
+    va2= tf.get_variable('block8/conv1x1/weights')
+    
+tensors = v.sess.run(va2) 
 
-# SSD default anchor boxes.
-ssd_anchors = ssd_net3.anchors(net_shape)
+## SSD default anchor boxes.
+#ssd_anchors = ssd_net.anchors(net_shape)
 
 
 #path = '../demo/'
 #image_names = sorted(os.listdir(path))
 image_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2012/JPEGImages/2010_001884.jpg'
 img = mpimg.imread(image_path)
-
-v = van.vanilla_ssd_net()
 glabel, glocation, gscore = v.inference(img)
 
-#rlogit, rimg, rpredictions, rlocalisations, rbbox_img = isess.run([logits, image_4d, predictions, localisations, bbox_img],
-#                                                              feed_dict={img_input: img})
-#
-#rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
-#            rpredictions, rlocalisations, ssd_anchors,
-#            select_threshold=0.5, img_shape=net_shape, num_classes=21, decode=True)
-#
-#rclasses, rscores, rbboxes = np_methods.bboxes_sort(rclasses, rscores, rbboxes, top_k=400)
-#rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
-## Resize bboxes to original image shape. Note: useless for Resize.WARP!
-#rbboxes = np_methods.bboxes_resize(rbbox_img, rbboxes)
-#plt_bboxes(img, rclasses, rscores, rbboxes)
+
+
+#r = s.flatten_output(glabel, glocation, gscore)
+s.train_op(img, glabel, glocation, gscore )
+
+v.plot(img)
 
 
 
