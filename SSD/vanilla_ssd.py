@@ -17,7 +17,7 @@ from nets import custom_layers
 
 class vanilla_ssd_net:
     
-    def __init__(self, gpu = '/gpu:1'):
+    def __init__(self, gpu = '/gpu:0'):
         
         self.gpu = gpu
         self.net_shape = (300, 300)
@@ -49,8 +49,8 @@ class vanilla_ssd_net:
             
             self.sess = tf.Session(config=self.config)
             self.sess.run(tf.global_variables_initializer())
-        self.saver = tf.train.Saver()
-        self.saver.restore(self.sess, self.ckpt_filename)
+#        self.saver = tf.train.Saver()
+#        self.saver.restore(self.sess, self.ckpt_filename)
         
 #        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
 #            print (i.name)

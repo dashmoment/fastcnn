@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import random
 
+import tf_extended as tfe
 import tensorflow.contrib.slim as slim
 
 import matplotlib.pyplot as plt
@@ -91,7 +92,7 @@ variable_names = [
 class ssd_shrink_network:
     
     
-    def __init__(self, scope,  ratio, ckpt_filename = '',gpu = '/gpu:1'):
+    def __init__(self, scope,  ratio, ckpt_filename = '',gpu = '/gpu:0'):
         
         self.net_shape = (300, 300)
         self.data_format = 'NHWC'
@@ -105,6 +106,7 @@ class ssd_shrink_network:
         self.ckpt_filename = ckpt_filename
         
         self.img_input = tf.placeholder(tf.uint8, shape=(None, None, 3))
+        self.inputs = tf.placeholder(tf.float32, shape=(None, self.net_shape[0], self.net_shape[1], 3))
         self.glabel = tf.placeholder(tf.int64)
         self.glocation = tf.placeholder(tf.float32)
         self.gscore = tf.placeholder(tf.float32)
@@ -117,20 +119,20 @@ class ssd_shrink_network:
   
         
     def creat_network(self, scope, ratio):
-        
+         
         with tf.device(self.gpu):
         
             self.ssd_net = ssd_vgg_300.SSDNet()
             
-            image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
-            self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
-            self.image_4d = tf.expand_dims(image_pre, 0)
+#            image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_train(
+#            self.img_input, None, None, self.net_shape, self.data_format)
+#            self.image_4d = tf.expand_dims(image_pre, 0)
         
             with slim.arg_scope(self.ssd_net.arg_scope(data_format=self.data_format)):
                 end_points = {}
-                with tf.variable_scope(scope,scope,[self.image_4d], reuse=self.reuse):
+                with tf.variable_scope(scope,scope,[self.inputs], reuse=self.reuse):
                     # Original VGG-16 blocks.
-                    net = slim.repeat(self.image_4d, 2, slim.conv2d, int(64*ratio), [3, 3], scope='conv1')
+                    net = slim.repeat(self.inputs, 2, slim.conv2d, int(64*ratio), [3, 3], scope='conv1')
                     end_points['block1'] = net
                     net = slim.max_pool2d(net, [2, 2], scope='pool1')
                     # Block 2.
@@ -215,7 +217,7 @@ class ssd_shrink_network:
         
         fglabel, fglocation, fgscore = self.flatten_output(glabel, glocation, gscore)
         
-        self.sess.run(self.loss,  feed_dict={self.img_input: img,self.glabel:fglabel, self.glocation:fglocation, self.gscore:fgscore})
+        self.sess.run(self.loss,  feed_dict={self.inputs: img,self.glabel:fglabel, self.glocation:fglocation, self.gscore:fgscore})
 
     def flatten_output(self, glabel, glocation, gscore):
 
@@ -237,7 +239,7 @@ class ssd_shrink_network:
         self.gscores = self.sess.run(tf.concat(fgscores, axis=0))
         self.glocalisations = self.sess.run(tf.concat(fglocalisations, axis=0))
         
-        return self.gclasses, self.gscores, self.glocalisations
+        return self.gclasses,  self.glocalisations, self.gscores
         
                 
         
@@ -323,7 +325,7 @@ def ssd_losses(logits, localisations,
                device='/gpu:1',
                scope=None):
     with tf.name_scope(scope, 'ssd_losses'):
-        lshape = tf.get_shape(logits[0], 5)
+        lshape = tfe.get_shape(logits[0], 5)
         num_classes = lshape[-1]
         batch_size = lshape[0]
 
