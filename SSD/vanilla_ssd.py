@@ -17,7 +17,7 @@ from nets import custom_layers
 
 class vanilla_ssd_net:
     
-    def __init__(self, gpu = '/gpu:1'):
+    def __init__(self, gpu = '/gpu:0'):
         
         self.gpu = gpu
         self.net_shape = (300, 300)
@@ -50,8 +50,8 @@ class vanilla_ssd_net:
             
             self.sess = tf.Session(config=self.config)
             self.sess.run(tf.global_variables_initializer())
-        self.saver = tf.train.Saver()
-        self.saver.restore(self.sess, self.ckpt_filename)
+#        self.saver = tf.train.Saver()
+#        self.saver.restore(self.sess, self.ckpt_filename)
         
 #        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
 #            print (i.name)
@@ -83,7 +83,26 @@ class vanilla_ssd_net:
         
         return self.glabel, self.glocation, self.gscore
        
-       
+    
+    def flatten_output(self, glabel, glocation, gscore):
+
+        # Flatten out all vectors!
+        
+        fgclasses = []
+        fgscores = []
+        fglocalisations = []
+        for i in range(len(self.logits)):
+            
+            fgclasses.append(tf.reshape(glabel[i], [-1]))
+            fgscores.append(tf.reshape(gscore[i], [-1]))          
+            fglocalisations.append(tf.reshape(glocation[i], [-1, 4]))
+            
+        
+        gclasses = tf.concat(fgclasses, axis=0)
+        glocalisations = tf.concat(fglocalisations, axis=0)
+        gscores = tf.concat(fgscores, axis=0)
+        
+        return gclasses, glocalisations, gscores
 
 
     def plot(self, img):

@@ -92,7 +92,7 @@ variable_names = [
 class ssd_shrink_network:
     
     
-    def __init__(self, scope,  ratio, batch_size, ckpt_filename = '',gpu = '/gpu:1'):
+    def __init__(self, scope,  ratio, batch_size, ckpt_filename = '',gpu = '/gpu:0'):
         
         self.net_shape = (300, 300)
         self.data_format = 'NHWC'
@@ -105,7 +105,7 @@ class ssd_shrink_network:
         self.config.gpu_options.allow_growth=True
         self.ckpt_filename = ckpt_filename
         
-#        self.img_input = tf.placeholder(tf.uint8, shape=(None, None, 3))
+        self.img_input = tf.placeholder(tf.uint8, shape=(None, None, 3))
         self.inputs = tf.placeholder(tf.float32, shape=(None, self.net_shape[0], self.net_shape[1], 3))
         self.glabel = tf.placeholder(tf.int64)
         self.glocation = tf.placeholder(tf.float32)
@@ -215,7 +215,15 @@ class ssd_shrink_network:
             self.saver = tf.train.Saver()
             self.saver.restore(self.sess, self.ckpt_filename)
          
- 
+    
+    def img_preprocessing(self, img):
+        image_pre, labels_pre, bboxes_pre, bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
+        image_4d = tf.expand_dims(image_pre, 0)
+        
+        pre_img = self.sess.run(image_4d, feed_dict={self.img_input:img})
+        
+        return pre_img
+
         
     def losses(self,         
                match_threshold=0.5,
