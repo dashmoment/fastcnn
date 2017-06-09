@@ -102,7 +102,7 @@ img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit
 labelfiles = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/ImageSets/Main'
 
 #v = van.vanilla_ssd_net('/gpu:1')
-v = ssd_s.ssd_shrink_network('test', 1 , 1, '', '/gpu:1')
+v = ssd_s.ssd_shrink_network('test', 0.1 , 1, '', '/gpu:1')
 
 
 image_list = os.listdir(img_root)
@@ -115,7 +115,7 @@ num = 0
 elapse = 0
 
 #for fid in range(len(val_list)//4):
-for fid in range(100):
+for fid in range(1):
     
     fcount = fcount + 1
     
@@ -149,7 +149,7 @@ for fid in range(100):
         if(match == -1): fp = fp +1
         
 
-print("Avg Elapse:{}".format(elapse/99)) 
+print("Avg Elapse:{}".format(elapse/1)) 
 print("Accuracy:{}".format(tp/num))
 
         

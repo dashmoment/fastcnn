@@ -116,8 +116,8 @@ class ssd_shrink_network:
         
         self.creat_network(scope, ratio, batch_size)
         
-        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
-            print (i.name)
+     #   for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
+      #      print (i.name)
     
   
         
@@ -212,6 +212,13 @@ class ssd_shrink_network:
             
         self.sess = tf.Session(config=self.config)
         self.sess.run(tf.global_variables_initializer())
+
+        with tf.variable_scope(scope) as scope:
+            scope.reuse_variables()
+            va = tf.get_variable('conv1/conv1_1/weights')
+
+        print(va)
+    
                     
         if self.ckpt_filename != '':
             self.saver = tf.train.Saver()
