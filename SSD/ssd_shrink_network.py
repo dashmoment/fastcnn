@@ -92,7 +92,7 @@ variable_names = [
 class ssd_shrink_network:
     
     
-    def __init__(self, scope,  ratio, batch_size, ckpt_filename = '',gpu = '/gpu:0'):
+    def __init__(self, scope,  ratio, batch_size = 64 , ckpt_filename = '',gpu = '/gpu:0'):
         
         self.net_shape = (300, 300)
         self.data_format = 'NHWC'
@@ -116,16 +116,18 @@ class ssd_shrink_network:
         
         self.creat_network(scope, ratio, batch_size)
         
-#        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
-#            print (i.name)
+        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
+            print (i.name)
     
   
         
-    def creat_network(self, scope, ratio, batch_size = 64):
+    def creat_network(self, scope, ratio, batch_size):
          
         with tf.device(self.gpu):
         
             self.ssd_net = ssd_vgg_300.SSDNet()
+
+            self.ssd_anchors = self.ssd_net.anchors(self.net_shape)
             
 #            image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
 #            self.img_input, None, None, self.net_shape, self.data_format)
@@ -217,13 +219,31 @@ class ssd_shrink_network:
          
     
     def img_preprocessing(self, img):
-        image_pre, labels_pre, bboxes_pre, bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
+        image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
         image_4d = tf.expand_dims(image_pre, 0)
         
         pre_img = self.sess.run(image_4d, feed_dict={self.img_input:img})
         
         return pre_img
+    
+    
+    def inference(self,img):
 
+        
+        rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.logits, self.predictions, self.localisations, self.bbox_img],
+                                                                  feed_dict={self.inputs: img})
+        
+        rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
+                    self.rpredictions, self.rlocalisations, self.ssd_anchors,
+                    select_threshold=0.5, img_shape=self.net_shape, num_classes=21, decode=True)
+        
+        rclasses, rscores, rbboxes = np_methods.bboxes_sort(rclasses, rscores, rbboxes, top_k=400)
+        rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
+        
+        rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
+        
+
+        return rclasses, rscores, rbboxes
         
     def losses(self,         
                match_threshold=0.5,
@@ -364,7 +384,7 @@ def ssd_losses(logits, localisations,
     with tf.name_scope(scope, 'ssd_losses'):
         lshape = tfe.get_shape(logits[0], 5)
         num_classes = lshape[-1]
-        batch_size = 10
+        batch_size = 64
 
         # Flatten out all vectors!
         flogits = []

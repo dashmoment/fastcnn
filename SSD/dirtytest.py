@@ -72,8 +72,8 @@ data_format = 'NHWC'
 
 ssd_net = ssd_vgg_300.SSDNet()
 ssd_anchors = ssd_net.anchors(net_shape)
-#for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
-#            print (i.name)
+for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
+            print (i.name)
 
 
 #ssd_s.model_prunning('ssd_300_vgg', scope_name, v,s)

@@ -69,7 +69,7 @@ yolo_old = YOLO_tiny_tf.YOLO_TF()
 varscope = 'recursive_1'
 shrinkratio = 0.8
 
-with tf.device('/gpu:0'):
+with tf.device('/gpu:1'):
 #Vanilla YOLO_tiny Weight
     x = tf.placeholder(tf.float32,(None,448,448,3))
     label = tf.placeholder(tf.float32,(None,1470), name='labels')

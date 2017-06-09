@@ -95,4 +95,13 @@ Elapse time: 0.009870 sec
 
 
 
+# SSD
 
+## Vanilla Baseline 
+## Test VOC 2007 test
+
+### iou > 0.5
+
+Accuracy: 0.596420
+
+Elapse tim:0.0257256 sec

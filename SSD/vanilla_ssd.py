@@ -37,7 +37,7 @@ class vanilla_ssd_net:
     def build_model(self):
         
         with tf.device(self.gpu):
-        
+            
          # Evaluation pre-processing: resize to SSD net shape.
             image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
                 self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
@@ -45,13 +45,17 @@ class vanilla_ssd_net:
             
             reuse = True if 'ssd_net' in locals() else None
             self.ssd_net = ssd_vgg_300.SSDNet()
+            
+             # SSD default anchor boxes.
+            self.ssd_anchors = self.ssd_net.anchors(self.net_shape)
+            
             with slim.arg_scope(self.ssd_net.arg_scope(data_format=self.data_format)):
                 self.predictions, self.localisations,  self.logits, _ = self.ssd_net.net(self.image_4d, is_training=False, reuse=reuse)
             
             self.sess = tf.Session(config=self.config)
             self.sess.run(tf.global_variables_initializer())
-#        self.saver = tf.train.Saver()
-#        self.saver.restore(self.sess, self.ckpt_filename)
+        self.saver = tf.train.Saver()
+        self.saver.restore(self.sess, self.ckpt_filename)
         
 #        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
 #            print (i.name)
@@ -60,10 +64,6 @@ class vanilla_ssd_net:
 
     def inference(self,img):
         
-        
-        
-        # SSD default anchor boxes.
-        self.ssd_anchors = self.ssd_net.anchors(self.net_shape)
         
         rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.logits, self.predictions, self.localisations, self.bbox_img],
                                                                   feed_dict={self.img_input: img})
@@ -75,13 +75,10 @@ class vanilla_ssd_net:
         rclasses, rscores, rbboxes = np_methods.bboxes_sort(rclasses, rscores, rbboxes, top_k=400)
         rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
         
-        label = tf.placeholder(tf.int64, shape=(len(rclasses)))
-        location = tf.placeholder(tf.float32, shape=(len(rclasses), 4))
+        rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
         
-        tlabel, tlocation, tscore = self.ssd_net.bboxes_encode(label, location, self.ssd_anchors)
-        self.glabel, self.glocation, self.gscore = self.sess.run([tlabel, tlocation, tscore] , feed_dict={label:rclasses, location:rbboxes})
-        
-        return self.glabel, self.glocation, self.gscore
+
+        return rclasses, rscores, rbboxes
        
     
     def flatten_output(self, glabel, glocation, gscore):
@@ -103,7 +100,21 @@ class vanilla_ssd_net:
         gscores = tf.concat(fgscores, axis=0)
         
         return gclasses, glocalisations, gscores
+    
+    def predict_box(self, img):
+        
+        rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
+        self.rpredictions, self.rlocalisations, self.ssd_anchors,
+        select_threshold=0.5, img_shape=self.net_shape, num_classes=21, decode=True)
 
+        rclasses, rscores, rbboxes = np_methods.bboxes_sort(rclasses, rscores, rbboxes, top_k=400)
+        rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
+        
+        rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
+        
+        return rclasses, rscores, rbboxes
+        
+        
 
     def plot(self, img):
         
@@ -119,7 +130,11 @@ class vanilla_ssd_net:
         
 def plt_bboxes(img, classes, scores, bboxes, figsize=(10,10), linewidth=1.5):
     """Visualize bounding boxes. Largely inspired by SSD-MXNET!
+    
     """
+    classes_label =  ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train","tvmonitor"]
+     
+    
     plt.imshow(img)
     height = img.shape[0]
     width = img.shape[1]
@@ -139,7 +154,7 @@ def plt_bboxes(img, classes, scores, bboxes, figsize=(10,10), linewidth=1.5):
                                  edgecolor=colors[cls_id],
                                  linewidth=linewidth)
             plt.gca().add_patch(rect)
-            class_name = str(cls_id)
+            class_name = str(classes_label[cls_id])
             plt.gca().text(xmin, ymin - 2,
                            '{:s} | {:.3f}'.format(class_name, score),
                            bbox=dict(facecolor=colors[cls_id], alpha=0.5),
