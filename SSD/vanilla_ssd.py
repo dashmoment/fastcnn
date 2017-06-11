@@ -17,12 +17,12 @@ from nets import custom_layers
 
 class vanilla_ssd_net:
     
-    def __init__(self, gpu = '/gpu:0'):
+    def __init__(self, gpu = '/gpu:0', ckpt_filename = '/home/ubuntu/workspace/fastcnn/model/SSD_300/ssd_300_vgg.ckpt'):
         
         self.gpu = gpu
         self.net_shape = (300, 300)
         self.data_format = 'NHWC'
-        self.ckpt_filename = '/home/ubuntu/workspace/fastcnn/model/SSD_300/ssd_300_vgg.ckpt'
+        self.ckpt_filename = ckpt_filename
         
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
@@ -79,6 +79,8 @@ class vanilla_ssd_net:
         
 
         return rclasses, rscores, rbboxes
+
+#        return self.rpredictions, self.rlocalisations, self.rbbox_img
        
     
     def flatten_output(self, glabel, glocation, gscore):

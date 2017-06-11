@@ -6,22 +6,22 @@ import cv2
 
 
 
-#data_path = '/home/dashmoment/dataset/demo/img'
-#output_path = '/home/dashmoment/dataset/demo/label'
-data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train'
-output_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC_train/label'
+data_path = '/home/dashmoment/dataset/demo/img'
+output_path = '/home/dashmoment/dataset/demo/label'
+#data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train'
+#output_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC_train/label'
 
 
 batch_size = 1
 
-
-v = van.vanilla_ssd_net('/gpu:0')
+ckpt_filename = '/home/dashmoment/dataset/model/ssd_300/VGG_VOC0712_SSD_300x300_ft_iter_120000.ckpt'
+v = van.vanilla_ssd_net('/gpu:0', ckpt_filename)
 
 image_list = os.listdir(data_path)
 
 fcount = 0
 
-for fid in range(352,len(image_list)):
+for fid in range(0,len(image_list)):
     
     fcount = fcount + 1
     

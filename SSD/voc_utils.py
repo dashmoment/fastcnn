@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import skimage
 from skimage import io
 
-
-root_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test'
+root_dir = '/home/dashmoment/dataset/VOCdevkit/VOC2007/'
+#root_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test'
 img_dir = os.path.join(root_dir, 'JPEGImages/')
 ann_dir = os.path.join(root_dir, 'Annotations')
 set_dir = os.path.join(root_dir, 'ImageSets', 'Main')

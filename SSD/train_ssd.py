@@ -71,10 +71,12 @@ def random_batch(s_obj, img_path, label_path ,index, batch_size, shuffle_list = 
 
 img_path = '/home/dashmoment/dataset/demo/img'
 label_path = '/home/dashmoment/dataset/demo/label'
-checkpoint_dir = ''
+checkpoint_dir = '/home/dashmoment/dataset/model/ssd_test/'
+logfile = '/home/dashmoment/dataset/ssd_log'
+model_file = '/home/dashmoment/dataset/model/ssd_test/model_file.ckpt'
 
 model_name = "ssd_s08"
-ratio = 0.8
+ratio = 0.1
 
 #batch = random_batch(img_path, 0, 5)
 index = 0
@@ -85,9 +87,20 @@ total_epoch = 10
 total_img = len(os.listdir(img_path))
 
 
-ssd = ssd_s.ssd_shrink_network(model_name, ratio, batch_size, checkpoint_dir,'/gpu:0')
+ssd = ssd_s.ssd_shrink_network(model_name, ratio, batch_size,checkpoint_dir,'/gpu:0')
 
 
+tf.summary.scalar("train_RMSE",ssd.loss, collections=['train'])
+tf.summary.scalar("test_RMSE",ssd.loss, collections=['test'])
+
+merged_summary_train = tf.summary.merge_all('train')
+merged_summary_test= tf.summary.merge_all('test')
+
+summary_writer = tf.summary.FileWriter(logfile, ssd.sess.graph)  
+
+sess = tf.Session()
+sess.run(tf.global_variables_initializer()) 
+saver = tf.train.Saver()  
 
 for epoch in range(init_epoch, total_epoch):
     
@@ -102,9 +115,13 @@ for epoch in range(init_epoch, total_epoch):
         shuffle_list, batch = random_batch(ssd, img_path, label_path, index, batch_size, shuffle_list)
 
         _, loss = ssd.sess.run([ssd.solver, ssd.loss],  feed_dict={ssd.inputs: batch[0] , ssd.glabel:batch[1], ssd.glocation:batch[2], ssd.gscore:batch[3]})
+#        loss = ssd.sess.run([ssd.loss],  feed_dict={ssd.inputs: batch[0] , ssd.glabel:batch[1], ssd.glocation:batch[2], ssd.gscore:batch[3]})
         print("loss:{}".format(loss))
 
-
+        if index%5 == 0:
+            saver.save(ssd.sess, model_file, global_step=i)
+            sumtest = ssd.sess.run(merged_summary_train, feed_dict={ssd.inputs: batch[0] , ssd.glabel:batch[1], ssd.glocation:batch[2], ssd.gscore:batch[3]})
+            summary_writer.add_summary(sumtest, i)
 #with tf.Session() as sess:
     
 
