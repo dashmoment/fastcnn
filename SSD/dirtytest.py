@@ -12,18 +12,19 @@ import ssd_shrink_network as ssd_s
 #data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train'
 #output_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC_train/label'
 
-data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/img'
-output_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/label'
-logfile = '/home/ubuntu/workspace/fastcnn/log/test'
-v = van.vanilla_ssd_net('/gpu:1')
+#data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/img'
+#output_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/label'
 
 
 batch_size = 1
 
-#data_path = '/home/dashmoment/dataset/demo/img'
-#output_path = '/home/dashmoment/dataset/demo/label'
-#ckpt_filename = '/home/dashmoment/dataset/model/ssd_300/VGG_VOC0712_SSD_300x300_ft_iter_120000.ckpt'
-s = ssd_s.ssd_shrink_network('ssd_s08', 0.1,  1, '', '/gpu:1')
+data_path = '/home/dashmoment/dataset/demo/img'
+output_path = '/home/dashmoment/dataset/demo/label'
+ckpt_filename = '/home/dashmoment/dataset/model/ssd_300/VGG_VOC0712_SSD_300x300_ft_iter_120000.ckpt'
+logfile = '/home/ubuntu/workspace/fastcnn/log/test'
+v = van.vanilla_ssd_net('/gpu:0',ckpt_filename)
+
+s = ssd_s.ssd_shrink_network('ssd_s08', 0.1,  1, '', '/gpu:0')
 
 image_list = os.listdir(data_path)
 
@@ -56,11 +57,12 @@ def encode_box(anchors, glabel, glocation, ):
         feat_ymax = np.ones(shape, dtype=dtype)
         feat_xmax = np.ones(shape, dtype=dtype)
         
+        prior_scaling=[0.1, 0.1, 0.2, 0.2]
         for i in range(len(glabel)):
             
             bbox = glocation[i]
             label = glabel[i]
-            prior_scaling=[0.1, 0.1, 0.2, 0.2]
+            
             
             int_ymin = np.maximum(ymin, bbox[0])
             int_xmin = np.maximum(xmin, bbox[1])
@@ -114,14 +116,14 @@ def encode_box(anchors, glabel, glocation, ):
 
 
 
-for fid in range(0,len(image_list)):
+for fid in range(1):
     
     fcount = fcount + 1
     
     print("Process:{}/{}".format(fid, len(image_list)))
     
     img_path = os.path.join(data_path, image_list[fid])
-    out_file =  os.path.join(output_path, image_list[fid]+'.pickle')
+#    out_file =  os.path.join(output_path, image_list[fid]+'.pickle')
     img = cv2.imread(img_path)
     
     glabel, glocation, gscore = v.inference(img)
@@ -129,14 +131,19 @@ for fid in range(0,len(image_list)):
     fglabel, fglocation, fgscore = v.sess.run(v.flatten_output(target_labels, target_localizations, target_scores))
     
     img = s.img_preprocessing(img)
-    for i in range(10):
+    for i in range(100000):
         
-        solver = s.optimizer.compute_gradients(s.losses())
-        
-        s.sess.run(solver, feed_dict={s.inputs:img, s.glabel:fglabel , s.glocation:fglocation, s.gscore:fgscore})
+#        solver = s.optimizer.compute_gradients(s.losses())
+        a = s.sess.run( s.glabel, feed_dict={s.glabel:fglabel})
 #        loss = s.sess.run(s.losses(), feed_dict={s.inputs:img, s.glabel:fglabel , s.glocation:fglocation, s.gscore:fgscore})
-#        print(loss)
-    
+#        loss = s.sess.run(s.losses(), feed_dict={s.inputs:img , s.glocation:fglocation, s.gscore:fgscore})
+        
+#        s.sess.run(s.optimizer, feed_dict={s.inputs:img, s.glabel:fglabel , s.glocation:fglocation, s.gscore:fgscore})
+         
+        
+        loss, _ = s.sess.run([s.loss, s.solver], feed_dict={s.inputs:img, s.glabel:fglabel,  s.glocation:fglocation , s.gscore:fgscore})
+#        loss = s.sess.run([s.loss], feed_dict={s.inputs:img, s.glabel:fglabel,  s.glocation:fglocation , s.gscore:fgscore})
+        print(loss)
 
 
 
