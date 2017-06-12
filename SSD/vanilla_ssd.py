@@ -14,6 +14,10 @@ from nets import ssd_vgg_300, ssd_common, np_methods
 from preprocessing import ssd_vgg_preprocessing
 from nets import custom_layers
 
+from datasets import dataset_factory
+from preprocessing import preprocessing_factory
+
+
 
 class vanilla_ssd_net:
     
@@ -28,6 +32,9 @@ class vanilla_ssd_net:
         self.config.gpu_options.allow_growth=True
         
         self.img_input = tf.placeholder(tf.uint8, shape=(None, None, 3))
+        self.glabel = tf.placeholder(tf.int64, shape = (None))
+        self.glocation = tf.placeholder(tf.float32, shape = (None, 4))
+        self.gscore = tf.placeholder(tf.float32)
 #        self.inputs = tf.placeholder(tf.float32, shape=(None, self.net_shape[0], self.net_shape[1], 3))
         
         self.build_model()
@@ -49,6 +56,7 @@ class vanilla_ssd_net:
              # SSD default anchor boxes.
             self.ssd_anchors = self.ssd_net.anchors(self.net_shape)
             
+            
             with slim.arg_scope(self.ssd_net.arg_scope(data_format=self.data_format)):
                 self.predictions, self.localisations,  self.logits, _ = self.ssd_net.net(self.image_4d, is_training=False, reuse=reuse)
             
@@ -60,8 +68,8 @@ class vanilla_ssd_net:
 #        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
 #            print (i.name)
         
+    
         
-
     def inference(self,img):
         
         
@@ -78,9 +86,9 @@ class vanilla_ssd_net:
         rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
         
 
-        return rclasses, rscores, rbboxes
+        return rclasses, rbboxes, rscores
 
-#        return self.rpredictions, self.rlocalisations, self.rbbox_img
+#        return self.rpredictions, self.rlocalisations, rscores
        
     
     def flatten_output(self, glabel, glocation, gscore):
@@ -90,11 +98,12 @@ class vanilla_ssd_net:
         fgclasses = []
         fgscores = []
         fglocalisations = []
-        for i in range(len(self.logits)):
+    
+        for i in range(len(glabel)):
             
             fgclasses.append(tf.reshape(glabel[i], [-1]))
             fgscores.append(tf.reshape(gscore[i], [-1]))          
-            fglocalisations.append(tf.reshape(glocation[i], [-1, 4]))
+            fglocalisations.append(tf.reshape(glocation[i].astype(np.float32), [-1, 4]))
             
         
         gclasses = tf.concat(fgclasses, axis=0)
@@ -129,6 +138,13 @@ class vanilla_ssd_net:
         # Resize bboxes to original image shape. Note: useless for Resize.WARP!
         rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
         plt_bboxes(img, rclasses, rscores, rbboxes)
+        
+        
+    def box_encode(self, glabels, gbboxes):      
+        gclasses, glocalisations, gscores = \
+                    self.ssd_net.bboxes_encode(glabels, gbboxes, self.ssd_anchors)
+                    
+        return gclasses, glocalisations, gscores
         
 def plt_bboxes(img, classes, scores, bboxes, figsize=(10,10), linewidth=1.5):
     """Visualize bounding boxes. Largely inspired by SSD-MXNET!

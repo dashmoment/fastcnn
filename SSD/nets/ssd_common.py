@@ -107,6 +107,8 @@ def tf_ssd_bboxes_encode_layer(labels,
         # Jaccard score.
         label = labels[i]
         bbox = bboxes[i]
+
+
         jaccard = jaccard_with_anchors(bbox)
         # Mask: check threshold + scores + no annotations + num_classes.
         mask = tf.greater(jaccard, feat_scores)
@@ -183,8 +185,12 @@ def tf_ssd_bboxes_encode(labels,
         target_labels = []
         target_localizations = []
         target_scores = []
+
+
         for i, anchors_layer in enumerate(anchors):
             with tf.name_scope('bboxes_encode_block_%i' % i):
+
+                
                 t_labels, t_loc, t_scores = \
                     tf_ssd_bboxes_encode_layer(labels, bboxes, anchors_layer,
                                                num_classes, no_annotation_label,

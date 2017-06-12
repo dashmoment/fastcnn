@@ -208,13 +208,10 @@ class ssd_shrink_network:
                         self.localisations.append(l)
                         
         
-        self.solver = self.train_op()
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=0.5)
             
         self.sess = tf.Session(config=self.config)
         
-
-        
-    
                     
         if self.ckpt_filename != '':
             
@@ -223,6 +220,12 @@ class ssd_shrink_network:
             self.saver.restore(self.sess, ckpt)
         else:
             self.sess.run(tf.global_variables_initializer())
+
+        tf.summary.FileWriter('/home/ubuntu/workspace/fastcnn/log/test', self.sess.graph) 
+
+            
+            
+    
     
     def test_var(self):
         
@@ -250,18 +253,18 @@ class ssd_shrink_network:
         rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.logits, self.predictions, self.localisations, self.bbox_img],
                                                                   feed_dict={self.inputs: img})
         
-#        rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
-#                    self.rpredictions, self.rlocalisations, self.ssd_anchors,
-#                    select_threshold=0.5, img_shape=self.net_shape, num_classes=21, decode=True)
-#        
-#        rclasses, rscores, rbboxes = np_methods.bboxes_sort(rclasses, rscores, rbboxes, top_k=400)
-#        rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
-#        
-#        rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
-#        
-#
-#        return rclasses, rscores, rbboxes
-        return self.rpredictions, self.rlocalisations, self.rbbox_img
+        rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
+                    self.rpredictions, self.rlocalisations, self.ssd_anchors,
+                    select_threshold=0.5, img_shape=self.net_shape, num_classes=21, decode=True)
+        
+        rclasses, rscores, rbboxes = np_methods.bboxes_sort(rclasses, rscores, rbboxes, top_k=400)
+        rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
+        
+        rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
+        
+
+        return rclasses, rscores, rbboxes
+#        return self.rpredictions, self.rlocalisations, self.rbbox_img
         
     def losses(self,    
                match_threshold=0.5,
@@ -283,10 +286,13 @@ class ssd_shrink_network:
     def train_op(self):
         
         
-         self.loss, _, _ = self.losses()
-         solver = tf.train.MomentumOptimizer(learning_rate = 0.8, momentum=0.9).minimize(self.loss)
+         #self.loss, _, _ = self.losses()
+         #self.loss = self.losses()
+        
+#         solver = tf.train.MomentumOptimizer(learning_rate = 0.8, momentum=0.9).minimize(self.losses())
+         self.optimizer.compute_gradients(self.losses())
          
-         return solver
+#         return solver
          
    
         
@@ -493,13 +499,13 @@ def ssd_losses(logits, localisations,
             loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
                                                                   labels=fgclasses)
             loss1 = tf.div(tf.reduce_sum(loss * fpmask), batch_size, name='value')
-            tf.losses.add_loss(loss)
+            tf.losses.add_loss(loss1)
 
         with tf.name_scope('cross_entropy_neg'):
             loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
                                                                   labels=no_classes)
             loss2 = tf.div(tf.reduce_sum(loss * fnmask), batch_size, name='value')
-            tf.losses.add_loss(loss)
+            tf.losses.add_loss(loss2)
 
         # Add localization loss: smooth L1, L2, ...
         with tf.name_scope('localization'):
@@ -507,13 +513,14 @@ def ssd_losses(logits, localisations,
             weights = tf.expand_dims(alpha * fpmask, axis=-1)
             loss = custom_layers.abs_smooth(localisations - fglocalisations)
             loss3 = tf.div(tf.reduce_sum(loss * weights), batch_size, name='value')
-            tf.losses.add_loss(loss)
+            tf.losses.add_loss(loss3)
         loss = loss1 + loss2 + loss3 
-        return loss, logits, localisations
+
+        return loss1
         
 
-        
-        
+
+                        
         
         
         

@@ -655,6 +655,8 @@ def ssd_losses(logits, localisations,
             loss3 = tf.div(tf.reduce_sum(loss * weights), batch_size, name='value')
             tf.losses.add_loss(loss)
         loss = loss1 + loss2 + loss3 
+
+        
         return loss
 
 

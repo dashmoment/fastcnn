@@ -157,9 +157,9 @@ def plt_labels(img, BBox, figsize=(10,10), linewidth=1.5):
 #img_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/JPEGImages'
 #labelfiles = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOCdevkit/VOC2007/Test/ImageSets/Main'
 
-img_root = '/home/dashmoment/dataset/VOCdevkit/VOC2007/JPEGImages'
-labelfiles = '/home/dashmoment/dataset/VOCdevkit/VOC2007/ImageSets/Main'
-label_path = '/home/dashmoment/dataset/demo/label'
+#img_root = '/home/dashmoment/dataset/VOCdevkit/VOC2007/JPEGImages'
+#labelfiles = '/home/dashmoment/dataset/VOCdevkit/VOC2007/ImageSets/Main'
+#label_path = '/home/dashmoment/dataset/demo/label'
 
 label_v= loadfrompickle('/home/dashmoment/dataset/demo/label/000001.jpg.pickle')
 
