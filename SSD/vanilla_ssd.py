@@ -21,12 +21,13 @@ from preprocessing import preprocessing_factory
 
 class vanilla_ssd_net:
     
-    def __init__(self, gpu = '/gpu:0', ckpt_filename = '/home/ubuntu/workspace/fastcnn/model/SSD_300/ssd_300_vgg.ckpt'):
+    def __init__(self, gpu = '/gpu:0', ckpt_filename = '/home/ubuntu/workspace/fastcnn/model/SSD_300/ssd_300_vgg.ckpt', reuse=None):
         
         self.gpu = gpu
         self.net_shape = (300, 300)
         self.data_format = 'NHWC'
         self.ckpt_filename = ckpt_filename
+        self.reuse = reuse
         
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
@@ -50,7 +51,7 @@ class vanilla_ssd_net:
                 self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
             self.image_4d = tf.expand_dims(image_pre, 0)
             
-            reuse = True if 'ssd_net' in locals() else None
+#            reuse = True if 'ssd_net' in locals() else None
             self.ssd_net = ssd_vgg_300.SSDNet()
             
              # SSD default anchor boxes.
@@ -58,7 +59,7 @@ class vanilla_ssd_net:
             
             
             with slim.arg_scope(self.ssd_net.arg_scope(data_format=self.data_format)):
-                self.predictions, self.localisations,  self.logits, _ = self.ssd_net.net(self.image_4d, is_training=False, reuse=reuse)
+                self.predictions, self.localisations,  self.logits, _ = self.ssd_net.net(self.image_4d, is_training=False, reuse=self.reuse)
             
             self.sess = tf.Session(config=self.config)
             self.sess.run(tf.global_variables_initializer())

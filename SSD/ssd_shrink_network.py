@@ -15,6 +15,8 @@ from nets import ssd_vgg_300, ssd_common, np_methods
 from preprocessing import ssd_vgg_preprocessing
 from nets import custom_layers
 
+import vanilla_ssd as van
+
 img_shape=(300, 300)
 num_classes=21
 no_annotation_label=21
@@ -89,10 +91,14 @@ variable_names = [
             'block11/conv3x3/biases'
         ]
 
+
+
 class ssd_shrink_network:
     
     
     def __init__(self, scope,  ratio, batch_size = 64 , ckpt_filename = '',gpu = '/gpu:0'):
+        
+        self.van = van.vanilla_ssd_net(gpu, reuse=None)
         
         self.net_shape = (300, 300)
         self.data_format = 'NHWC'
@@ -115,11 +121,14 @@ class ssd_shrink_network:
         self.gscore = tf.placeholder(tf.float32)
         
         self.creat_network(scope, ratio)
+#        self.model_pruning()
         
-     #   for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
-      #      print (i.name)
+        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
+            print (i.name)
     
-  
+    def model_pruning(self):
+                    
+        model_prunning('ssd_300_vgg', self.scope, self.van, self)
         
     def creat_network(self, scope, ratio):
          
@@ -214,7 +223,6 @@ class ssd_shrink_network:
 #        self.solver = tf.train.MomentumOptimizer(learning_rate = 0.8, momentum=0.9).minimize(self.losses())
             
         self.sess = tf.Session(config=self.config)
-        
         
                     
         if self.ckpt_filename != '':
