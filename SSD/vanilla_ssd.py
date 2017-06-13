@@ -68,7 +68,15 @@ class vanilla_ssd_net:
         
 #        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
 #            print (i.name)
+    
+
+    def img_preprocessing(self, img):
+        image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(img, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
+#        image_4d = tf.expand_dims(image_pre, 0)
         
+#        pre_img = self.sess.run(image_4d, feed_dict={self.img_input:img})
+        
+        return image_pre
     
         
     def inference(self,img):

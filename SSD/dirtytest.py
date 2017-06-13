@@ -18,7 +18,7 @@ logfile = '/home/ubuntu/workspace/fastcnn/log/test'
 
 
 batch_size = 16
-s = ssd_s.ssd_shrink_network('ssd_s08', 0.8,  batch_size, '', '/gpu:1')
+s = ssd_s.ssd_shrink_network('ssd_s08', 1,  batch_size, '', '/gpu:0')
 
 image_list = os.listdir(data_path)
 
