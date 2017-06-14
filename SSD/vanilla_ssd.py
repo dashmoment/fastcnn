@@ -71,18 +71,18 @@ class vanilla_ssd_net:
     
 
     def img_preprocessing(self, img):
-        image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(img, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
-#        image_4d = tf.expand_dims(image_pre, 0)
+        image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
+        image_4d = tf.expand_dims(image_pre, 0)
         
-#        pre_img = self.sess.run(image_4d, feed_dict={self.img_input:img})
+        pre_img = self.sess.run(image_4d, feed_dict={self.img_input:img})
         
-        return image_pre
+        return pre_img
     
         
     def inference(self,img):
         
         
-        rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.logits, self.predictions, self.localisations, self.bbox_img],
+        img_pro, rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.img_input, self.logits, self.predictions, self.localisations, self.bbox_img],
                                                                   feed_dict={self.img_input: img})
         
         rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
@@ -94,12 +94,32 @@ class vanilla_ssd_net:
         
         rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
         
-
-        return rclasses, rbboxes, rscores
+    #    return rlogit
+        return img_pro ,rclasses, rbboxes, rscores
 
 #        return self.rpredictions, self.rlocalisations, rscores
        
     
+    def create_img_label(self, img):
+        
+        img_pro, rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.img_input, self.logits, self.predictions, self.localisations, self.bbox_img],
+                                                                  feed_dict={self.img_input: img})
+        
+        rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
+                    self.rpredictions, self.rlocalisations, self.ssd_anchors,
+                    select_threshold=0.5, img_shape=self.net_shape, num_classes=21, decode=True)
+        
+        rclasses, rscores, rbboxes = np_methods.bboxes_sort(rclasses, rscores, rbboxes, top_k=400)
+        rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
+        
+        rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
+        
+        target_labels, target_localizations, target_scores = encode_box(self.ssd_anchors, rclasses, rbboxes)
+        
+        fglabel, fglocation, fgscore = self.sess.run(self.flatten_output(target_labels, target_localizations, target_scores))
+        
+        return img_pro, fglabel, fglocation, fgscore
+        
     def flatten_output(self, glabel, glocation, gscore):
 
         # Flatten out all vectors!
@@ -137,6 +157,9 @@ class vanilla_ssd_net:
         
 
     def plot(self, img):
+
+        img_pro, rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.img_input, self.logits, self.predictions, self.localisations, self.bbox_img],
+                                                                  feed_dict={self.img_input: img})
         
         rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
         self.rpredictions, self.rlocalisations, self.ssd_anchors,
@@ -189,4 +212,82 @@ def plt_bboxes(img, classes, scores, bboxes, figsize=(10,10), linewidth=1.5):
     plt.show()
 
 
-
+def encode_box(anchors, glabel, glocation, ):
+    
+    target_labels = []
+    target_localizations = []
+    target_scores = []
+    
+    for j in range(len(anchors)):
+        yref, xref, href, wref  = anchors[j]
+        ymin = yref - href / 2.
+        xmin = xref - wref / 2.
+        ymax = yref + href / 2.
+        xmax = xref + wref / 2.
+        vol_anchors = (xmax - xmin) * (ymax - ymin)
+        shape = (yref.shape[0], yref.shape[1], href.size)
+        
+        dtype = np.float32
+        feat_labels = np.zeros(shape, dtype=np.int64)
+        feat_scores = np.zeros(shape, dtype=dtype)
+    
+        feat_ymin = np.zeros(shape, np.dtype)
+        feat_xmin = np.zeros(shape, dtype=dtype)
+        feat_ymax = np.ones(shape, dtype=dtype)
+        feat_xmax = np.ones(shape, dtype=dtype)
+        
+        prior_scaling=[0.1, 0.1, 0.2, 0.2]
+        
+        for i in range(len(glabel)):
+            
+            bbox = glocation[i]
+            label = glabel[i]
+            
+            
+            int_ymin = np.maximum(ymin, bbox[0])
+            int_xmin = np.maximum(xmin, bbox[1])
+            int_ymax = np.maximum(ymax, bbox[2])
+            int_xmax = np.maximum(xmax, bbox[3])
+            h = np.maximum(int_ymax - int_ymin, 0.)
+            w = np.maximum(int_xmax - int_xmin, 0.)
+            inter_vol = h * w
+            union_vol = vol_anchors - inter_vol \
+                    + (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+            jaccard = np.divide(inter_vol, union_vol)
+            
+            mask = np.greater(jaccard, feat_scores)
+            mask = np.logical_and(mask, feat_scores > -0.5)
+            mask = np.logical_and(mask, label < 21)
+            
+            imask = mask.astype(np.int64)
+            fmask = mask.astype(dtype)
+            
+            feat_labels = imask * label + (1 - imask) * feat_labels
+            feat_scores = np.where(mask, jaccard, feat_scores)
+            
+            
+            feat_ymin = fmask * bbox[0] + (1 - fmask) * feat_ymin
+            feat_xmin = fmask * bbox[1] + (1 - fmask) * feat_xmin
+            feat_ymax = fmask * bbox[2] + (1 - fmask) * feat_ymax
+            feat_xmax = fmask * bbox[3] + (1 - fmask) * feat_xmax
+        
+        # Transform to center / size.
+        feat_cy = (feat_ymax + feat_ymin) / 2.
+        feat_cx = (feat_xmax + feat_xmin) / 2.
+        feat_h = feat_ymax - feat_ymin
+        feat_w = feat_xmax - feat_xmin
+        # Encode features.
+        feat_cy = (feat_cy - yref) / href / prior_scaling[0]
+        feat_cx = (feat_cx - xref) / wref / prior_scaling[1]
+        
+        tmph = feat_h / href
+        feat_h = np.log(tmph.astype(dtype)) / prior_scaling[2]
+        tmpw = feat_w / wref
+        feat_w = np.log(tmpw.astype(dtype)) / prior_scaling[3]
+        feat_localizations = np.stack([feat_cx, feat_cy, feat_w, feat_h], axis=-1)
+    
+        target_labels.append(feat_labels)
+        target_localizations.append(feat_localizations)
+        target_scores.append(feat_scores)
+        
+    return target_labels, target_localizations, target_scores

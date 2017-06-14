@@ -42,7 +42,34 @@ normalizations=[20, -1, -1, -1, -1, -1]
 prior_scaling=[0.1, 0.1, 0.2, 0.2]
 prediction_fn=slim.softmax
 
+
+
 variable_names = [
+
+            'block4_box/conv_loc/weights',
+            'block4_box/conv_loc/biases',
+            'block4_box/conv_cls/weights',
+            'block4_box/conv_cls/biases',
+            'block7_box/conv_loc/weights',
+            'block7_box/conv_loc/biases',
+            'block7_box/conv_cls/weights',
+            'block7_box/conv_cls/biases',
+            'block8_box/conv_loc/weights',
+            'block8_box/conv_loc/biases',
+            'block8_box/conv_cls/weights',
+            'block8_box/conv_cls/biases',
+            'block9_box/conv_loc/weights',
+            'block9_box/conv_loc/biases',
+            'block9_box/conv_cls/weights',
+            'block9_box/conv_cls/biases',
+            'block10_box/conv_loc/weights',
+            'block10_box/conv_loc/biases',
+            'block10_box/conv_cls/weights',
+            'block10_box/conv_cls/biases',
+            'block11_box/conv_loc/weights',
+            'block11_box/conv_loc/biases',
+            'block11_box/conv_cls/weights',
+            'block11_box/conv_cls/biases',
             'conv1/conv1_1/weights',
             'conv1/conv1_1/biases',
             'conv1/conv1_2/weights',
@@ -63,6 +90,7 @@ variable_names = [
             'conv4/conv4_2/biases',
             'conv4/conv4_3/weights',
             'conv4/conv4_3/biases',
+            'block4_box/L2Normalization/gamma',
             'conv5/conv5_1/weights',
             'conv5/conv5_1/biases',
             'conv5/conv5_2/weights',
@@ -89,6 +117,7 @@ variable_names = [
             'block11/conv1x1/biases',
             'block11/conv3x3/weights',
             'block11/conv3x3/biases'
+            
         ]
 
 
@@ -96,14 +125,14 @@ variable_names = [
 class ssd_shrink_network:
     
     
-    def __init__(self, scope,  ratio, batch_size = 64 , ckpt_filename = '',gpu = '/gpu:0'):
+    def __init__(self, scope,  ratio, batch_size = 64 , ckpt_filename = '',gpu = '/gpu:0',reuse=None):
         
-        self.van = van.vanilla_ssd_net(gpu, reuse=None)
+        self.van = van.vanilla_ssd_net('/gpu:0', reuse=reuse)
         
         self.net_shape = (300, 300)
         self.data_format = 'NHWC'
         self.dropout_keep_prob = 0.5
-        self.reuse = None
+        self.reuse = reuse
         self.is_training = True
         self.scope = scope
         
@@ -121,10 +150,10 @@ class ssd_shrink_network:
         self.gscore = tf.placeholder(tf.float32)
         
         self.creat_network(scope, ratio)
-#        self.model_pruning()
         
-        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
-            print (i.name)
+        
+#        for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
+#            print (i.name)
     
     def model_pruning(self):
                     
@@ -138,9 +167,9 @@ class ssd_shrink_network:
 
             self.ssd_anchors = self.ssd_net.anchors(self.net_shape)
             
-#            image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
-#            self.img_input, None, None, self.net_shape, self.data_format)
-#            self.image_4d = tf.expand_dims(image_pre, 0)
+            image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
+            self.img_input, None, None, self.net_shape, self.data_format)
+            self.image_4d = tf.expand_dims(image_pre, 0)
             
         
             with slim.arg_scope(self.ssd_net.arg_scope(data_format=self.data_format)):
@@ -218,7 +247,7 @@ class ssd_shrink_network:
         
         self.loss = self.losses(self.batch_size)
         self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
-        self.solver = self.optimizer.minimize(self.loss)
+        #self.solver = self.optimizer.minimize(self.loss)
 
 #        self.solver = tf.train.MomentumOptimizer(learning_rate = 0.8, momentum=0.9).minimize(self.losses())
             
@@ -232,13 +261,12 @@ class ssd_shrink_network:
             self.saver.restore(self.sess, ckpt)
         else:
             self.sess.run(tf.global_variables_initializer())
-
+            
+            with tf.name_scope('model_pruning'):
+                self.model_pruning()
 #        tf.summary.FileWriter('/home/ubuntu/workspace/fastcnn/log/test', self.sess.graph) 
 
             
-            
-    
-    
     def test_var(self):
         
         with tf.variable_scope(self.scope) as scope:
@@ -265,18 +293,18 @@ class ssd_shrink_network:
         rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.logits, self.predictions, self.localisations, self.bbox_img],
                                                                   feed_dict={self.inputs: img})
         
-        rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
-                    self.rpredictions, self.rlocalisations, self.ssd_anchors,
-                    select_threshold=0.5, img_shape=self.net_shape, num_classes=21, decode=True)
-        
-        rclasses, rscores, rbboxes = np_methods.bboxes_sort(rclasses, rscores, rbboxes, top_k=400)
-        rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
-        
-        rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
-        
-
-        return rclasses, rscores, rbboxes
+#        rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
+#                    self.rpredictions, self.rlocalisations, self.ssd_anchors,
+#                    select_threshold=0.5, img_shape=self.net_shape, num_classes=21, decode=True)
+#        
+#        rclasses, rscores, rbboxes = np_methods.bboxes_sort(rclasses, rscores, rbboxes, top_k=400)
+#        rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
+#        
+#        rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
+#        
+#
 #        return self.rpredictions, self.rlocalisations, self.rbbox_img
+        #return rlogit
         
         
         
@@ -293,7 +321,13 @@ class ssd_shrink_network:
          
    
         
-    def plot(self, img):
+    def plot(self,img):
+
+        image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
+        image_4d = tf.expand_dims(image_pre, 0)       
+        pre_img = self.sess.run(image_4d, feed_dict={self.img_input:img})
+        rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.logits, self.predictions, self.localisations, self.bbox_img],
+                                                                  feed_dict={self.inputs: pre_img})
         
         rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
         self.rpredictions, self.rlocalisations, self.ssd_anchors,
@@ -304,7 +338,7 @@ class ssd_shrink_network:
         # Resize bboxes to original image shape. Note: useless for Resize.WARP!
         rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
         plt_bboxes(img, rclasses, rscores, rbboxes)
-        
+    
         
 
     def flatten_output(self, glabel, glocation, gscore):
@@ -318,7 +352,7 @@ class ssd_shrink_network:
             
             fgclasses.append(tf.reshape(glabel[i], [-1]))
             fgscores.append(tf.reshape(gscore[i], [-1]))          
-            fglocalisations.append(tf.reshape(glocation[i], [-1, 4]))
+            fglocalisations.append(tf.reshape(glocation[i].astype(np.float32), [-1, 4]))
             
         
         gclasses = tf.concat(fgclasses, axis=0)
@@ -387,31 +421,31 @@ class ssd_shrink_network:
             nmask = tf.logical_and(nmask, nvalues < max_hard_pred)
             fnmask = tf.cast(nmask, dtype)
             
-        with tf.name_scope('cross_entropy_pos'):
-            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
-                                                                  labels=self.glabel)
-#            loss_t1 = tf.reduce_sum(loss )
-           
-            loss1 = tf.div(tf.reduce_sum(loss * fpmask), batch_size, name='value')
-            
-#            tf.losses.add_loss(loss1)
-            
-        with tf.name_scope('cross_entropy_neg'):
-            loss_n = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
-                                                                  labels=no_classes)
-            loss2 = tf.div(tf.reduce_sum(loss_n * fnmask), batch_size, name='value')
-#            tf.losses.add_loss(loss2)
-    
-        # Add localization loss: smooth L1, L2, ...
-        with tf.name_scope('localization'):
-            # Weights Tensor: positive mask + random negative.
-            weights = tf.expand_dims(alpha * fpmask, axis=-1)
-            lossl = custom_layers.abs_smooth(localisations - self.glocation)
-            loss3 = tf.div(tf.reduce_sum(lossl * weights), batch_size, name='value')
+#        with tf.name_scope('cross_entropy_pos'):
+#            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
+#                                                                  labels=self.glabel)
+#            loss_t1 = tf.reduce_sum(loss )           
+#            loss1 = tf.div(tf.reduce_sum(loss * fpmask), batch_size, name='value')           
+#            #tf.losses.add_loss(loss1)
+#            
+#        with tf.name_scope('cross_entropy_neg'):
+#            loss_n = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
+#                                                                  labels=no_classes)
+#            loss2 = tf.div(tf.reduce_sum(loss_n * fnmask), batch_size, name='value')
+#            #tf.losses.add_loss(loss2)
+#    
+#        # Add localization loss: smooth L1, L2, ...
+#        with tf.name_scope('localization'):
+#            # Weights Tensor: positive mask + random negative.
+#            weights = tf.expand_dims(alpha * fpmask, axis=-1)
+#            lossl = custom_layers.abs_smooth(localisations - self.glocation)
+#            loss3 = tf.div(tf.reduce_sum(lossl * weights), batch_size, name='value')
 #            tf.losses.add_loss(loss3)
-            
-        loss = loss1+loss2+loss3
-        return loss
+#            
+#        loss = tf.add(loss1, loss2)
+#        loss = tf.add(loss, loss3)
+#        
+        return fnmask
         
                 
 def plt_bboxes(img, classes, scores, bboxes, figsize=(10,10), linewidth=1.5):
@@ -449,8 +483,10 @@ def plt_bboxes(img, classes, scores, bboxes, figsize=(10,10), linewidth=1.5):
         
         
 def model_prunning(var_scop, s_varscop, v_obj, s_obj):
-    
+
+   
     for var in variable_names:
+
         
         with tf.variable_scope(var_scop) as scope:
             scope.reuse_variables()
@@ -465,6 +501,7 @@ def model_prunning(var_scop, s_varscop, v_obj, s_obj):
         tensors_s = s_obj.sess.run(var_s) 
         
         if np.shape(tensors) != np.shape(tensors_s):
+            
              
              if (len(np.shape(tensors))) > 1:
             
@@ -508,6 +545,7 @@ def model_prunning(var_scop, s_varscop, v_obj, s_obj):
                 
            
         else:   
+             
              kernel_array = tensors
     
     
@@ -517,83 +555,7 @@ def model_prunning(var_scop, s_varscop, v_obj, s_obj):
             s_obj.sess.run(op)
             
 
-#def ssd_losses(logits, localisations,
-#               fgclasses, fglocalisations, fgscores, batch_size,
-#               match_threshold=0.5,
-#               negative_ratio=3.,
-#               alpha=1.,
-#               label_smoothing=0.,
-#               device='/gpu:1',
-#               scope=None):
-#    
-#    with tf.name_scope(scope, 'ssd_losses'):
-#        lshape = tfe.get_shape(logits[0], 5)
-#        num_classes = lshape[-1]
-#    
-#        # Flatten out all vectors!
-#        flogits = []
-#        flocalisations = []
-#
-#        for i in range(len(logits)):
-#            flogits.append(tf.reshape(logits[i], [-1, num_classes]))
-#            flocalisations.append(tf.reshape(localisations[i], [-1, 4]))
-#
-#        logits = tf.concat(flogits, axis=0)     
-#        localisations = tf.concat(flocalisations, axis=0)
-#                
-#        dtype = logits.dtype
-#
-#        # Compute positive matching mask...
-#        pmask = fgscores > match_threshold
-#        fpmask = tf.cast(pmask, dtype)
-#        n_positives = tf.reduce_sum(fpmask)
-#
-#        # Hard negative mining...
-#        no_classes = tf.cast(pmask, tf.int32)
-#        predictions = slim.softmax(logits)
-#        nmask = tf.logical_and(tf.logical_not(pmask),
-#                               fgscores > -0.5)
-#        fnmask = tf.cast(nmask, dtype)
-#        nvalues = tf.where(nmask,
-#                           predictions[:, 0],
-#                           1. - fnmask)
-#        nvalues_flat = tf.reshape(nvalues, [-1])
-#        # Number of negative entries to select.
-#        max_neg_entries = tf.cast(tf.reduce_sum(fnmask), tf.int32)
-#        n_neg = tf.cast(negative_ratio * n_positives, tf.int32) + batch_size
-#        n_neg = tf.minimum(n_neg, max_neg_entries)
-#
-#        val, idxes = tf.nn.top_k(-nvalues_flat, k=n_neg)
-#        max_hard_pred = -val[-1]
-#        # Final negative mask.
-#        nmask = tf.logical_and(nmask, nvalues < max_hard_pred)
-#        fnmask = tf.cast(nmask, dtype)
-#        
-#        
-#        # Add cross-entropy loss.
-#        with tf.name_scope('cross_entropy_pos'):
-#            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
-#                                                                  labels=fgclasses)
-#            loss1 = tf.div(tf.reduce_sum(loss * fpmask), batch_size, name='value')
-#            tf.losses.add_loss(loss1)
-#
-#        with tf.name_scope('cross_entropy_neg'):
-#            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
-#                                                                  labels=no_classes)
-#            loss2 = tf.div(tf.reduce_sum(loss * fnmask), batch_size, name='value')
-#            tf.losses.add_loss(loss2)
-#
-#        # Add localization loss: smooth L1, L2, ...
-#        with tf.name_scope('localization'):
-#            # Weights Tensor: positive mask + random negative.
-#            weights = tf.expand_dims(alpha * fpmask, axis=-1)
-#            loss = custom_layers.abs_smooth(localisations - fglocalisations)
-#            loss3 = tf.div(tf.reduce_sum(loss * weights), batch_size, name='value')
-#            tf.losses.add_loss(loss3)
-##        loss = loss1 + loss2 + loss3 
-#
-#        return loss3
-        
+
 
 
                         
