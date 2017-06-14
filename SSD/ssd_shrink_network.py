@@ -127,7 +127,7 @@ class ssd_shrink_network:
     
     def __init__(self, scope,  ratio, batch_size = 64 , ckpt_filename = '',gpu = '/gpu:0',reuse=None):
         
-        self.van = van.vanilla_ssd_net('/gpu:0', reuse=reuse)
+        self.van = van.vanilla_ssd_net('/gpu:0', '/home/dashmoment/dataset/model/ssd_300/VGG_VOC0712_SSD_300x300_ft_iter_120000.ckpt',reuse=reuse)
         
         self.net_shape = (300, 300)
         self.data_format = 'NHWC'

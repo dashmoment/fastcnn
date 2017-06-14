@@ -20,16 +20,16 @@ import matplotlib.pyplot as plt
 
 ###Code Reference http://warmspringwinds.github.io/tensorflow/tf-slim/2016/12/21/tfrecords-guide/
 
-data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/img'
-tfrecords_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/tfrecord'
+#data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/img'
+#tfrecords_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/tfrecord'
 
-#data_path =  '/home/dashmoment/dataset/demo/img'
-#tfrecords_filename = '/home/dashmoment/dataset/demo/tfrecord/pascal_voc_segmentation.tfrecords'
+data_path =  '/home/dashmoment/dataset/demo/img'
+tfrecords_path = '/home/dashmoment/dataset/demo/tfrecord/'
 #v = van.vanilla_ssd_net('/gpu:0','/home/dashmoment/dataset/model/ssd_300/VGG_VOC0712_SSD_300x300_ft_iter_120000.ckpt')
 #v = van.vanilla_ssd_net('/gpu:0')
 
 batch_size = 8
-s = ssd_s.ssd_shrink_network('ssd_s08', 0.8,  batch_size, '', '/gpu:1')
+s = ssd_s.ssd_shrink_network('ssd_s08', 0.1,  batch_size, '', '/gpu:0')
 
 #def _bytes_feature(value):
 #    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
@@ -38,7 +38,7 @@ s = ssd_s.ssd_shrink_network('ssd_s08', 0.8,  batch_size, '', '/gpu:1')
 #    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 #
 #
-#SIZE_PER_FILE = 64
+#SIZE_PER_FILE = 10
 #
 #filelist = os.listdir(data_path)
 #
@@ -179,9 +179,9 @@ with tf.Session()  as sess:
 #            res_v = s.van.inference(img)
             
 #            pre_img = s.img_preprocessing(img_re)
-#            res_s = s.inference(img_s)
+            res_s = s.inference(img_s)
 #            loss, _ = s.sess.run([s.loss, s.solver], feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
-            s.sess.run(s.loss, feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
+#            s.sess.run(s.loss, feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
 
 #            print(loss)
 
