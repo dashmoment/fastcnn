@@ -61,8 +61,8 @@ class vanilla_ssd_net:
             with slim.arg_scope(self.ssd_net.arg_scope(data_format=self.data_format)):
                 self.predictions, self.localisations,  self.logits, _ = self.ssd_net.net(self.image_4d, is_training=False, reuse=self.reuse)
             
-            self.sess = tf.Session(config=self.config)
-            self.sess.run(tf.global_variables_initializer())
+        self.sess = tf.Session(config=self.config)
+        self.sess.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver()
         self.saver.restore(self.sess, self.ckpt_filename)
         
@@ -74,7 +74,7 @@ class vanilla_ssd_net:
         image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
         image_4d = tf.expand_dims(image_pre, 0)
         
-        pre_img = self.sess.run(image_4d, feed_dict={self.img_input:img})
+        pre_img = self.sess.run(image_pre, feed_dict={self.img_input:img})
         
         return pre_img
     
@@ -101,8 +101,10 @@ class vanilla_ssd_net:
        
     
     def create_img_label(self, img):
+
+        img_pro = self.img_preprocessing(img)
         
-        img_pro, rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.img_input, self.logits, self.predictions, self.localisations, self.bbox_img],
+        rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.logits, self.predictions, self.localisations, self.bbox_img],
                                                                   feed_dict={self.img_input: img})
         
         rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
@@ -116,9 +118,9 @@ class vanilla_ssd_net:
         
         target_labels, target_localizations, target_scores = encode_box(self.ssd_anchors, rclasses, rbboxes)
         
-        fglabel, fglocation, fgscore = self.sess.run(self.flatten_output(target_labels, target_localizations, target_scores))
+        #fglabel, fglocation, fgscore = self.sess.run(self.flatten_output(target_labels, target_localizations, target_scores))
         
-        return img_pro, fglabel, fglocation, fgscore
+        #return img_pro, fglabel, fglocation, fgscore
         
     def flatten_output(self, glabel, glocation, gscore):
 
@@ -212,7 +214,7 @@ def plt_bboxes(img, classes, scores, bboxes, figsize=(10,10), linewidth=1.5):
     plt.show()
 
 
-def encode_box(anchors, glabel, glocation, ):
+def encode_box(anchors, glabel, glocation ):
     
     target_labels = []
     target_localizations = []
