@@ -168,9 +168,9 @@ class ssd_shrink_network:
 
             self.ssd_anchors = self.ssd_net.anchors(self.net_shape)
             
-            image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
-            self.img_input, None, None, self.net_shape, self.data_format)
-            self.image_4d = tf.expand_dims(image_pre, 0)
+#            image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
+#            self.img_input, None, None, self.net_shape, self.data_format)
+#            self.image_4d = tf.expand_dims(image_pre, 0)
             
         
             with slim.arg_scope(self.ssd_net.arg_scope(data_format=self.data_format)):

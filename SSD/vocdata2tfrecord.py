@@ -49,17 +49,17 @@ v = van.vanilla_ssd_net('/gpu:1')
 filelist = os.listdir(data_path)
 
 
-for i in range(52,len(filelist)//SIZE_PER_FILE):
+for i in range(len(filelist)//SIZE_PER_FILE):
     
     tfrecords_filename = os.path.join(tfrecords_path, 'voc_for_ssd_training_'+str(i)+'.tfrecords')
     writer = tf.python_io.TFRecordWriter(tfrecords_filename)
     
     print("Process:{}/{}".format(i+1,len(filelist)//SIZE_PER_FILE))
     
-#    start = time.clock()
+    start = time.clock()
     for j in range(SIZE_PER_FILE):
         
-              
+      
         file_idx = i*SIZE_PER_FILE + j
         
         
@@ -68,34 +68,32 @@ for i in range(52,len(filelist)//SIZE_PER_FILE):
         
         height = img.shape[0]
         width = img.shape[1]
-
-        start = time.clock()
-        v.create_img_label(img)
-
-        #image_pro, fglabel, fglocation, fgscore = v.create_img_label(img)
-        end = time.clock()
-        print("time:{}".format(end-start))
-        
-#        img_raw = image_pro.tostring()
-#        fglabel_b = fglabel.tostring()
-#        fglocation_b = fglocation.tostring()
-#        fgscore_b = fgscore.tostring()
-#        
-#        example = tf.train.Example(features=tf.train.Features(feature={
-#                
-#                'height':_int64_feature(height),
-#                'width':_int64_feature(width),
-#                'imgraw':_bytes_feature(img_raw),
-#                'fglabel':_bytes_feature(fglabel_b),
-#                'fglocation':_bytes_feature(fglocation_b),
-#                'fgscore':_bytes_feature(fgscore_b)
-#                }))
-#        
-#        writer.write(example.SerializeToString())
-#    writer.close()
+       
+        image_pro, fglabel, fglocation, fgscore = v.create_img_label(img)
+         
     
-#    end = time.clock()
-#    print("time:{}".format(end-start))
+        img_raw = img.tostring()
+        img_process = image_pro.tostring()
+        fglabel_b = fglabel.tostring()
+        fglocation_b = fglocation.tostring()
+        fgscore_b = fgscore.tostring()
+        
+        example = tf.train.Example(features=tf.train.Features(feature={
+                
+                'height':_int64_feature(height),
+                'width':_int64_feature(width),
+                'imgraw':_bytes_feature(img_raw),
+                'imgpre':_bytes_feature(img_process),
+                'fglabel':_bytes_feature(fglabel_b),
+                'fglocation':_bytes_feature(fglocation_b),
+                'fgscore':_bytes_feature(fgscore_b)
+                }))
+        
+        writer.write(example.SerializeToString())
+    writer.close()
+    
+    end = time.clock()
+    print("time:{}".format(end-start))
     
     
 

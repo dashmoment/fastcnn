@@ -47,9 +47,9 @@ class vanilla_ssd_net:
         with tf.device(self.gpu):
             
          # Evaluation pre-processing: resize to SSD net shape.
-            image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
+            self.image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(
                 self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
-            self.image_4d = tf.expand_dims(image_pre, 0)
+            self.image_4d = tf.expand_dims(self.image_pre, 0)
             
 #            reuse = True if 'ssd_net' in locals() else None
             self.ssd_net = ssd_vgg_300.SSDNet()
@@ -71,10 +71,8 @@ class vanilla_ssd_net:
     
 
     def img_preprocessing(self, img):
-        image_pre, labels_pre, bboxes_pre, self.bbox_img = ssd_vgg_preprocessing.preprocess_for_eval(self.img_input, None, None, self.net_shape, self.data_format, resize=ssd_vgg_preprocessing.Resize.WARP_RESIZE)
-        image_4d = tf.expand_dims(image_pre, 0)
-        
-        pre_img = self.sess.run(image_pre, feed_dict={self.img_input:img})
+       
+        pre_img = self.sess.run(self.image_pre, feed_dict={self.img_input:img})
         
         return pre_img
     
@@ -102,7 +100,7 @@ class vanilla_ssd_net:
     
     def create_img_label(self, img):
 
-        img_pro = self.img_preprocessing(img)
+        img_pre = self.img_preprocessing(img)
         
         rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.logits, self.predictions, self.localisations, self.bbox_img],
                                                                   feed_dict={self.img_input: img})
@@ -115,14 +113,39 @@ class vanilla_ssd_net:
         rclasses, rscores, rbboxes = np_methods.bboxes_nms(rclasses, rscores, rbboxes, nms_threshold=0.45)
         
         rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
+
+        target_labels, target_localizations, target_scores = encode_box(rclasses, rbboxes, self.ssd_anchors)
         
-        target_labels, target_localizations, target_scores = encode_box(self.ssd_anchors, rclasses, rbboxes)
         
-        #fglabel, fglocation, fgscore = self.sess.run(self.flatten_output(target_labels, target_localizations, target_scores))
+        fglabel, fglocation, fgscore = self.flatten_output(target_labels, target_localizations, target_scores)
         
-        #return img_pro, fglabel, fglocation, fgscore
         
+        return img_pre, fglabel, fglocation, fgscore
+
     def flatten_output(self, glabel, glocation, gscore):
+
+        # Flatten out all vectors!
+        
+        fgclasses = []
+        fgscores = []
+        fglocalisations = []
+    
+        for i in range(len(glabel)):
+            
+            fgclasses.append(np.reshape(glabel[i], [-1]))
+            fgscores.append(np.reshape(gscore[i], [-1]))          
+            fglocalisations.append(np.reshape(glocation[i].astype(np.float32), [-1, 4]))
+            
+        
+        gclasses = np.concatenate(fgclasses)
+        glocalisations = np.concatenate(fglocalisations)
+        gscores = np.concatenate(fgscores)
+        
+        return gclasses, glocalisations, gscores
+
+   
+        
+    def tf_flatten_output(self, glabel, glocation, gscore):
 
         # Flatten out all vectors!
         
@@ -160,7 +183,7 @@ class vanilla_ssd_net:
 
     def plot(self, img):
 
-        img_pro, rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.img_input, self.logits, self.predictions, self.localisations, self.bbox_img],
+        img_pro, rlogit, self.rpredictions, self.rlocalisations, self.rbbox_img = self.sess.run([self.image_pre, self.logits, self.predictions, self.localisations, self.bbox_img],
                                                                   feed_dict={self.img_input: img})
         
         rclasses, rscores, rbboxes = np_methods.ssd_bboxes_select(
@@ -172,6 +195,8 @@ class vanilla_ssd_net:
         # Resize bboxes to original image shape. Note: useless for Resize.WARP!
         rbboxes = np_methods.bboxes_resize(self.rbbox_img, rbboxes)
         plt_bboxes(img, rclasses, rscores, rbboxes)
+
+        return img_pro
         
         
     def box_encode(self, glabels, gbboxes):      
@@ -214,7 +239,7 @@ def plt_bboxes(img, classes, scores, bboxes, figsize=(10,10), linewidth=1.5):
     plt.show()
 
 
-def encode_box(anchors, glabel, glocation ):
+def encode_box(glabel, glocation, anchors ):
     
     target_labels = []
     target_localizations = []

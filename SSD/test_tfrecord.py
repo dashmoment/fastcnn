@@ -61,12 +61,14 @@ def read_and_decode(filename_queue):
         'height': tf.FixedLenFeature([], tf.int64),
         'width': tf.FixedLenFeature([], tf.int64),
         'imgraw': tf.FixedLenFeature([], tf.string),
+        'imgpre':tf.FixedLenFeature([], tf.string),
         'fglabel': tf.FixedLenFeature([], tf.string),
         'fglocation': tf.FixedLenFeature([], tf.string),
         'fgscore': tf.FixedLenFeature([], tf.string)
         })
     
-    image = tf.decode_raw(features['imgraw'], tf.float32)
+    image = tf.decode_raw(features['imgpre'], tf.float32)
+    image_raw = tf.decode_raw(features['imgraw'], tf.uint8)
     
     
     tfglabel = tf.decode_raw(features['fglabel'], tf.int64)
@@ -74,14 +76,21 @@ def read_and_decode(filename_queue):
     tfgscore = tf.decode_raw(features['fgscore'], tf.float32)
     height = tf.cast(features['height'], tf.int32)
     width = tf.cast(features['width'], tf.int32)
-    #
+    
+    image_shape = tf.stack([height, width, 3])
+    
     image = tf.reshape(image, (300,300,3))
+    image_raw = tf.reshape(image_raw, image_shape)
     tfglabel = tf.reshape(tfglabel, [8732])
     tfglocation = tf.reshape(tfglocation, [8732,4])
     tfgscore = tf.reshape(tfgscore, [8732])   
     
     
-    images, tfglabel, tfglocation, tfgscore, theight, twidth = tf.train.shuffle_batch( [image ,tfglabel, tfglocation, tfgscore, height, width],
+    resized_image = tf.image.resize_image_with_crop_or_pad(image=image_raw,
+                                                           target_height=300,
+                                                           target_width=300)
+    
+    image_r, images, tfglabel, tfglocation, tfgscore, theight, twidth = tf.train.shuffle_batch( [resized_image, image ,tfglabel, tfglocation, tfgscore, height, width],
                                          batch_size=batch_size,
                                          capacity=600,
                                          num_threads=3,
@@ -90,7 +99,7 @@ def read_and_decode(filename_queue):
     
     
     
-    return images, tfglabel, tfglocation, tfgscore, [theight, twidth]
+    return image_r, images, tfglabel, tfglocation, tfgscore, [theight, twidth]
     
 
 #data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/img'
@@ -99,7 +108,7 @@ def read_and_decode(filename_queue):
 #pre_img = s.img_preprocessing(img)
 #s.plot(img)
 
-img, label, loc, score, img_size  = read_and_decode(s.filename_queue) 
+image_raw, img, label, loc, score, img_size  = read_and_decode(s.filename_queue) 
 coord = tf.train.Coordinator()
 threads = tf.train.start_queue_runners(sess=s.sess, coord=coord)  
 summary_writer = tf.summary.FileWriter('testlog', s.sess.graph) #
@@ -109,12 +118,12 @@ try:
         
         
         i = i + 1
-        img_s, tfglabel_s, loc_s, score_s, sizes = s.sess.run([img, label, loc, score, img_size])
+        image_r, img_s, tfglabel_s, loc_s, score_s, sizes = s.sess.run([image_raw, img, label, loc, score, img_size])
         
         tfglabel_s = np.reshape(tfglabel_s, [-1])
         loc_s = np.reshape(loc_s, [-1,4])
         score_s = np.reshape(score_s, [-1])
-        #
+        
         loss, _ = s.sess.run([s.loss, s.solver], feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
         
         print(loss)#
