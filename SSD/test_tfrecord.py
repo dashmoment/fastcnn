@@ -27,10 +27,16 @@ def _int64_feature(value):
 batch_size = 16
 SIZE_PER_FILE = 128
 
-data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train'
 tfrecords_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train_tfrecord'
+model_path = '/home/ubuntu/workspace/fastcnn/model/ssd_test'
+model_file = '/home/ubuntu/workspace/fastcnn/model/ssd_test/ssd_test.ckpt'
+log_path = '/home/ubuntu/workspace/fastcnn/log/ssd_test'
 
-s = ssd_s.ssd_shrink_network('ssd_s08', 1,  batch_size, '', '/gpu:1')
+
+if len(os.listdir(model_path)) > 0:
+    s = ssd_s.ssd_shrink_network('ssd_s08', 0.8,  batch_size, model_path, '/gpu:1')
+else:
+    s = ssd_s.ssd_shrink_network('ssd_s08', 0.8,  batch_size, '', '/gpu:1')
 
 #### For test
 #data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/img'
@@ -40,13 +46,6 @@ s = ssd_s.ssd_shrink_network('ssd_s08', 1,  batch_size, '', '/gpu:1')
 #data_path =  '/home/dashmoment/dataset/demo/img'
 #tfrecords_path = '/home/dashmoment/dataset/demo/tfrecord/'
 #v = van.vanilla_ssd_net('/gpu:0','/home/dashmoment/dataset/model/ssd_300/VGG_VOC0712_SSD_300x300_ft_iter_120000.ckpt')
-
-filelist = os.listdir(data_path)
-
-
-#img_path = os.path.join(data_path, filelist[0])
-#img = cv2.imread(img_path)
-#image_pro, fglabel, fglocation, fgscore = v.create_img_label(img)
 
 
     
@@ -111,29 +110,41 @@ def read_and_decode(filename_queue):
 image_raw, img, label, loc, score, img_size  = read_and_decode(s.filename_queue) 
 coord = tf.train.Coordinator()
 threads = tf.train.start_queue_runners(sess=s.sess, coord=coord)  
-summary_writer = tf.summary.FileWriter('testlog', s.sess.graph) #
+tf.summary.scalar('loss',s.loss)
+merged_summary = tf.summary.merge_all()
+summary_writer = tf.summary.FileWriter(log_path, s.sess.graph) 
+saver = tf.train.Saver()
+
 try:
     i= 0 
     while not coord.should_stop():
         
         
         i = i + 1
+        print("Iteration:{}".format(i))
+
         image_r, img_s, tfglabel_s, loc_s, score_s, sizes = s.sess.run([image_raw, img, label, loc, score, img_size])
         
         tfglabel_s = np.reshape(tfglabel_s, [-1])
         loc_s = np.reshape(loc_s, [-1,4])
         score_s = np.reshape(score_s, [-1])
         
-        loss, _ = s.sess.run([s.loss, s.solver], feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
+        s.sess.run(s.solver, feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
         
-        print(loss)#
-        print("Iteration:{}".format(i))
+
+        if i%200 == 0:
+
+            loss, lsum = s.sess.run([s.loss, merged_summary], feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
+            summary_writer.add_summary(lsum, i)
+            saver.save(s.sess, model_file, global_step=i)
+            print("loss:{}".format(loss))
+           
                    
         
 except tf.errors.OutOfRangeError:
     print('Done training -- epoch limit reached')
 finally:
-    coord.request_stop()#
+    coord.request_stop()
 
 coord.request_stop()
 coord.join(threads)
