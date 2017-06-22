@@ -22,15 +22,14 @@ def _bytes_feature(value):
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-###Code Reference http://warmspringwinds.github.io/tensorflow/tf-slim/2016/12/21/tfrecords-guide/
 
 batch_size = 16
 SIZE_PER_FILE = 128
 
 tfrecords_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train_tfrecord'
-model_path = '/home/ubuntu/workspace/fastcnn/model/ssd_test'
-model_file = '/home/ubuntu/workspace/fastcnn/model/ssd_test/ssd_test.ckpt'
-log_path = '/home/ubuntu/workspace/fastcnn/log/ssd_test'
+model_path = '/home/ubuntu/workspace/fastcnn/model/ssd_v1_08'
+model_file = '/home/ubuntu/workspace/fastcnn/model/ssd_v1_08/ssd_v1_08.ckpt'
+log_path = '/home/ubuntu/workspace/fastcnn/log/ssd_v1_08'
 
 
 if len(os.listdir(model_path)) > 0:
@@ -38,17 +37,7 @@ if len(os.listdir(model_path)) > 0:
 else:
     s = ssd_s.ssd_shrink_network('ssd_s08', 0.8,  batch_size, '', '/gpu:1')
 
-#### For test
-#data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/img'
-#tfrecords_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/tfrecord'
-#s = ssd_s.ssd_shrink_network('ssd_s08', 1,  batch_size, '', '/gpu:1')
-#### For home
-#data_path =  '/home/dashmoment/dataset/demo/img'
-#tfrecords_path = '/home/dashmoment/dataset/demo/tfrecord/'
-#v = van.vanilla_ssd_net('/gpu:0','/home/dashmoment/dataset/model/ssd_300/VGG_VOC0712_SSD_300x300_ft_iter_120000.ckpt')
 
-
-    
 def read_and_decode(filename_queue):
     
     reader = tf.TFRecordReader()#
@@ -101,27 +90,28 @@ def read_and_decode(filename_queue):
     return image_r, images, tfglabel, tfglocation, tfgscore, [theight, twidth]
     
 
-#data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/img'
-#filelist = os.listdir(data_path)
-#img = cv2.imread(os.path.join(data_path, filelist[10]))
-#pre_img = s.img_preprocessing(img)
-#s.plot(img)
+image_raw, img, label, loc, score, img_size  = read_and_decode(s.train_filename_queue) 
+timage_raw, timg, tlabel, tloc, tscore, timg_size  = read_and_decode(s.test_filename_queue) 
 
-image_raw, img, label, loc, score, img_size  = read_and_decode(s.filename_queue) 
+
 coord = tf.train.Coordinator()
 threads = tf.train.start_queue_runners(sess=s.sess, coord=coord)  
-tf.summary.scalar('loss',s.loss)
-merged_summary = tf.summary.merge_all()
+
+tf.summary.scalar("Train Loss",s.loss, collections=['train'])
+tf.summary.scalar("Test_Loss",s.loss, collections=['test'])
+merged_summary_train = tf.summary.merge_all('train')
+merged_summary_test = tf.summary.merge_all('test')
+
 summary_writer = tf.summary.FileWriter(log_path, s.sess.graph) 
 saver = tf.train.Saver()
 
 try:
-    i= 0 
+    iteration= 0 
     while not coord.should_stop():
         
         
-        i = i + 1
-        print("Iteration:{}".format(i))
+        iteration = iteration + 1
+        print("Iteration:{}".format(iteration))
 
         image_r, img_s, tfglabel_s, loc_s, score_s, sizes = s.sess.run([image_raw, img, label, loc, score, img_size])
         
@@ -132,12 +122,19 @@ try:
         s.sess.run(s.solver, feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
         
 
-        if i%200 == 0:
+        if iteration%5 == 0:
 
-            loss, lsum = s.sess.run([s.loss, merged_summary], feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
-            summary_writer.add_summary(lsum, i)
-            saver.save(s.sess, model_file, global_step=i)
+            loss, train_sum = s.sess.run([s.loss, merged_summary_train], feed_dict={s.inputs:img_s, s.glabel:tfglabel_s,  s.glocation:loc_s , s.gscore:score_s})
+            summary_writer.add_summary(train_sum, iteration)
+            saver.save(s.sess, model_file, global_step=iteration)
             print("loss:{}".format(loss))
+
+        if iteration%6 == 0:
+
+            timg_s, ttfglabel_s, tloc_s, tscore_s = s.sess.run([timg, tlabel, tloc, tscore])
+            tloss, test_sum = s.sess.run([s.loss, merged_summary_test], feed_dict={s.inputs:timg_s, s.glabel:ttfglabel_s,  s.glocation:tloc_s , s.gscore:tscore_s})
+            summary_writer.add_summary(train_sum, test_sum)
+            print("Test loss:{}".format(tloss))
            
                    
         
@@ -149,12 +146,7 @@ finally:
 coord.request_stop()
 coord.join(threads)
 
-#data_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/vocdemo/img'
-#filelist = os.listdir(data_path)
-#img = cv2.imread(os.path.join(data_path, filelist[10]))
-#pre_img = s.img_preprocessing(img)
-#s.plot(img)
-#np.array_equal(res_s[0][0], res_v[0][0])
+
 
 
 

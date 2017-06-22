@@ -128,7 +128,7 @@ class ssd_shrink_network:
     
     def __init__(self, scope,  ratio, batch_size = 64 , ckpt_filename = '',gpu = '/gpu:0',reuse=None):
         
-        self.van = van.vanilla_ssd_net('/gpu:0',reuse=reuse)
+        self.van = van.vanilla_ssd_net(gpu,reuse=reuse)
         
         self.net_shape = (300, 300)
         self.data_format = 'NHWC'
@@ -267,15 +267,24 @@ class ssd_shrink_network:
                 self.model_pruning()
 #        tf.summary.FileWriter('/home/ubuntu/workspace/fastcnn/log/test', self.sess.graph) 
     
-    def prepare_tfrecord(self):
+    def prepare_tfrecord(self, ratio=0.9):
 
         tfrecords_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/VOC_train_tfrecord'
         tfrecord_list =  os.listdir(tfrecords_path)
 
-        for i in range(len(tfrecord_list)) :
-            tfrecord_list[i] = os.path.join(tfrecords_path, tfrecord_list[i])
+        train_protion = len(tfrecord_list) - int(len(tfrecord_list)*0.9)
 
-        self.filename_queue = tf.train.string_input_producer(tfrecord_list, num_epochs=10)   
+        train_list = tfrecord_list[:train_protion]
+        test_list = tfrecord_list[train_protion:]
+
+        for i in range(len(train_list)) :
+            train_list[i] = os.path.join(tfrecords_path, train_list[i])
+
+        for i in range(len(test_list)) :
+            test_list[i] = os.path.join(tfrecords_path, test_list[i])
+
+        self.train_filename_queue = tf.train.string_input_producer(train_list, num_epochs=10) 
+        self.test_filename_queue = tf.train.string_input_producer(test_list, num_epochs=10)  
 
 
 
